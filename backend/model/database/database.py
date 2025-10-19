@@ -3,6 +3,12 @@ import pandas as pd
 import json
 from entity import Entity
 from person import Person
+from employee import Employee
+from manager import Manager
+from director import Director
+from company import Company
+from department import Department
+from team import Team
 
 class Database:
 
@@ -22,6 +28,28 @@ class Database:
                 password TEXT,
                 responsibleIds TEXT
                 )
+            CREATE TABLE IF NOT EXISTS company (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                rpeIds TEXT,
+                cnpj TEXT UNIQUE,
+                departmentsIds TEXT,
+                directorsIds TEXT
+                )
+            CREATE TABLE IF NOT EXISTS department (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                rpeIds TEXT,
+                directorId TEXT UNIQUE,
+                teamsIds TEXT
+                )
+            CREATE TABLE IF NOT EXISTS team (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                rpeIds TEXT,
+                managerId TEXT UNIQUE,
+                employeeIds TEXT
+                )
             ''')
         self.__saveData()
 
@@ -33,7 +61,7 @@ class Database:
         if isinstance(item, Person):
 
             # --- Serializa a lista de IDs para texto (JSON) ---
-            responsible_ids_text = json.dumps(item.responsibleIds)
+            responsibleIdsText = json.dumps(item.responsibleIds)
 
             try:
                 # Usando '?' para evitar SQL Injection
@@ -48,7 +76,7 @@ class Database:
                         item.role,
                         item.email,
                         item.password,
-                        responsible_ids_text)  #Em Person, o responsibleIds deve ser inicializado com algum valor padrão
+                        responsibleIdsText)  #Em Person, o responsibleIds deve ser inicializado com algum valor padrão
                 )
                 self.__saveData()
                 print(f"Pessoa {item.name['name']} adicionada.")
@@ -56,22 +84,87 @@ class Database:
             except sqlite3.IntegrityError as e:
                 print(f"Erro ao adicionar pessoa (ID ou Email já existe?): {e}")
 
+        elif isinstance(item, Company):
+            
+            # --- Serializa a lista de IDs para texto (JSON) ---
+            rpeIdsText = json.dumps(item.rpeIds)
+            departmentsIdsText = json.dumps(item.departmentsIds)
+            directorsIdsText = json.dumps(item.directorsIds)
+
+            try:
+                # Usando '?' para evitar SQL Injection
+                self.__db.execute(
+                    "INSERT INTO person (id, name, cpf, companyID, departmentID, teamID, role, email, password, responsibleIds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
+                        item.id, 
+                        item.name, 
+                        rpeIdsText,
+                        item.cnpj,
+                        departmentsIdsText,
+                        directorsIdsText)
+                )
+                self.__saveData()
+                print(f"Company {item.name['name']} adicionada.")
+            
+            except sqlite3.IntegrityError as e:
+                print(f"Erro ao adicionar Company (ID ou CNPJ já existe?): {e}")
+        
+        elif isinstance(item, Department):
+            
+            # --- Serializa a lista de IDs para texto (JSON) ---
+            rpeIdsText = json.dumps(item.rpeIds)
+            teamsIdsText = json.dumps(item.directorsIds)
+
+            try:
+                # Usando '?' para evitar SQL Injection
+                self.__db.execute(
+                    "INSERT INTO person (id, name, cpf, companyID, departmentID, teamID, role, email, password, responsibleIds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
+                        item.id, 
+                        item.name, 
+                        rpeIdsText,
+                        item.directorID,
+                        teamsIdsText)
+                )
+                self.__saveData()
+                print(f"Department {item.name['name']} adicionado.")
+            
+            except sqlite3.IntegrityError as e:
+                print(f"Erro ao adicionar Department (ID ou DirectorID já existe?): {e}")
+        
+        elif isinstance(item, Team):
+            
+            # --- Serializa a lista de IDs para texto (JSON) ---
+            rpeIdsText = json.dumps(item.rpeIds)
+            employeeIdsText = json.dumps(item.directorsIds)
+
+            try:
+                # Usando '?' para evitar SQL Injection
+                self.__db.execute(
+                    "INSERT INTO person (id, name, cpf, companyID, departmentID, teamID, role, email, password, responsibleIds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
+                        item.id, 
+                        item.name, 
+                        rpeIdsText,
+                        item.managerID,
+                        employeeIdsText)
+                )
+                self.__saveData()
+                print(f"Team {item.name['name']} adicionado.")
+            
+            except sqlite3.IntegrityError as e:
+                print(f"Erro ao adicionar Team (ID ou ManagerID já existe?): {e}")
+
     def deleteItem(self, item : Entity):
         """Remove um item do banco de dados, de acordo com o tipo da entidade."""
-        if isinstance(item, Person):
-            try:
-                cursor = self.__db.execute("DELETE FROM person WHERE id = ?", (item.id,))
-                self.__saveData()
+        try:
+            cursor = self.__db.execute("DELETE FROM person WHERE id = ?", (item.id,))
+            self.__saveData()
 
-                if cursor.rowcount == 0:
-                    print(f"[AVISO] Nenhum registro encontrado com o ID {item.id}.")
-                else:
-                    print(f"Pessoa com ID {item.id} removida com sucesso.")
-            
-            except sqlite3.Error as e:
-                print(f"Erro ao deletar pessoa: {e}")
-        else:
-            print(f"Tipo de entidade não suportado: {type(item).__name__}")
+            if cursor.rowcount == 0:
+                print(f"[AVISO] Nenhum registro encontrado com o ID {item.id}.")
+            else:
+                print(f"Pessoa com ID {item.id} removida com sucesso.")
+        
+        except sqlite3.Error as e:
+            print(f"Erro ao deletar pessoa: {e}")
 
     def getPersonById(self, person_id: str):
         """Retorna uma pessoa pelo ID."""
@@ -89,17 +182,42 @@ class Database:
 
         # Constrói um objeto Person a partir do DataFrame
         row = df.iloc[0]
-        person = Person(
-            id=row["id"],
-            name=row["name"],
-            cpf=row["cpf"],
-            companyID=row["companyID"],
-            departmentID=row["departmentID"],
-            teamID=row["teamID"],
-            role=row["role"],
-            email=row["email"],
-            password=row["password"],
-            responsibleIds=row["responsibleIds"],
-        )
-
+        if row["role"] == "Employee":
+            person = Employee(
+                id=row["id"],
+                name=row["name"],
+                cpf=row["cpf"],
+                companyID=row["companyID"],
+                departmentID=row["departmentID"],
+                teamID=row["teamID"],
+                role=row["role"],
+                email=row["email"],
+                password=row["password"]
+            )
+        elif row["role"] == "Manager":
+            person = Manager(
+                id=row["id"],
+                name=row["name"],
+                cpf=row["cpf"],
+                companyID=row["companyID"],
+                departmentID=row["departmentID"],
+                teamID=row["teamID"],
+                role=row["role"],
+                email=row["email"],
+                password=row["password"],
+                responibleIds=row["responsibleIds"]
+            )
+        elif row["role"] == "Director":
+            person = Director(
+                id=row["id"],
+                name=row["name"],
+                cpf=row["cpf"],
+                companyID=row["companyID"],
+                departmentID=row["departmentID"],
+                teamID=row["teamID"],
+                role=row["role"],
+                email=row["email"],
+                password=row["password"],
+                responibleIds=row["responsibleIds"]
+            )
         return person
