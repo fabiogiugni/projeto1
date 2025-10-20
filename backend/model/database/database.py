@@ -239,6 +239,133 @@ class Database:
         else:
             print(f"[ERRO] Tipo de item desconhecido: {type(item)}")
 
+    
+    def updateItem(self, item: Entity):
+        """Atualiza um item existente no banco de dados, baseado no seu tipo."""
+        
+        # --- Bloco Person ---
+        if isinstance(item, Person):
+            responsibleIdsText = json.dumps(item.responsibleIds)
+            try:
+                self.__db.execute(
+                    """UPDATE person 
+                       SET name = ?, cpf = ?, companyID = ?, departmentID = ?, teamID = ?, 
+                           role = ?, email = ?, password = ?, responsibleIds = ?
+                       WHERE id = ?""", 
+                    (item.name, item.cpf, item.companyID, item.departmentID, item.teamID,
+                     item.role, item.email, item.password, responsibleIdsText, 
+                     item.id) # O ID é o último, para a cláusula WHERE
+                )
+                self.__saveData()
+                print(f"Pessoa {item.name} (ID: {item.id}) atualizada.")
+            except sqlite3.Error as e:
+                print(f"Erro ao atualizar Pessoa (ID: {item.id}): {e}")
+
+        # --- Bloco Company ---
+        elif isinstance(item, Company):
+            rpeIdsText = json.dumps(item.rpeIds)
+            departmentsIdsText = json.dumps(item.departmentsIds)
+            directorsIdsText = json.dumps(item.directorsIds)
+            try:
+                self.__db.execute(
+                    """UPDATE company
+                       SET name = ?, rpeIds = ?, cnpj = ?, departmentsIds = ?, directorsIds = ?
+                       WHERE id = ?""",
+                    (item.name, rpeIdsText, item.cnpj, departmentsIdsText, directorsIdsText,
+                     item.id) # ID no final
+                )
+                self.__saveData()
+                print(f"Company {item.name} (ID: {item.id}) atualizada.")
+            except sqlite3.Error as e:
+                print(f"Erro ao atualizar Company (ID: {item.id}): {e}")
+        
+        # --- Bloco Department ---
+        elif isinstance(item, Department):
+            rpeIdsText = json.dumps(item.rpeIds)
+            teamsIdsText = json.dumps(item.teamsIds)
+            try:
+                self.__db.execute(
+                    """UPDATE department
+                       SET name = ?, rpeIds = ?, directorId = ?, teamsIds = ?
+                       WHERE id = ?""",
+                    (item.name, rpeIdsText, item.directorId, teamsIdsText,
+                     item.id) # ID no final
+                )
+                self.__saveData()
+                print(f"Department {item.name} (ID: {item.id}) atualizado.")
+            except sqlite3.Error as e:
+                print(f"Erro ao atualizar Department (ID: {item.id}): {e}")
+        
+        # --- Bloco Team ---
+        elif isinstance(item, Team):
+            rpeIdsText = json.dumps(item.rpeIds)
+            employeeIdsText = json.dumps(item.employeeIds)
+            try:
+                self.__db.execute(
+                    """UPDATE team
+                       SET name = ?, rpeIds = ?, managerId = ?, employeeIds = ?
+                       WHERE id = ?""",
+                    (item.name, rpeIdsText, item.managerId, employeeIdsText,
+                     item.id) # ID no final
+                )
+                self.__saveData()
+                print(f"Team {item.name} (ID: {item.id}) atualizado.")
+            except sqlite3.Error as e:
+                print(f"Erro ao atualizar Team (ID: {item.id}): {e}")
+
+        # --- Bloco RPE ---
+        elif isinstance(item, RPE):
+            objectivesIdsText = json.dumps(item.objectivesIds)
+            try:
+                self.__db.execute(
+                    """UPDATE rpe
+                       SET description = ?, responsibleID = ?, objectivesIds = ?
+                       WHERE id = ?""",
+                    (item.description, item.responsibleID, objectivesIdsText,
+                     item.id) # ID no final
+                )
+                self.__saveData()
+                print(f"RPE (ID: {item.id}) atualizado.")
+            except sqlite3.Error as e:
+                print(f"Erro ao atualizar RPE (ID: {item.id}): {e}")
+
+        # --- Bloco Objective ---
+        elif isinstance(item, Objective):
+            krIdsText = json.dumps(item.krIds)
+            kpiIdsText = json.dumps(item.kpiIds)
+            try:
+                self.__db.execute(
+                    """UPDATE objective
+                       SET description = ?, responsibleID = ?, krIds = ?, kpiIds = ?
+                       WHERE id = ?""",
+                    (item.description, item.responsibleID, krIdsText, kpiIdsText,
+                     item.id) # ID no final
+                )
+                self.__saveData()
+                print(f"Objective (ID: {item.id}) atualizado.")
+            except sqlite3.Error as e:
+                print(f"Erro ao atualizar Objective (ID: {item.id}): {e}")
+
+        # --- Bloco KPI ---
+        elif isinstance(item, KPI):
+            dataText = json.dumps(item.data) # Serializa o vetor de floats
+            try:
+                self.__db.execute(
+                    """UPDATE kpi
+                       SET description = ?, responsibleID = ?, data = ?, goal = ?
+                       WHERE id = ?""",
+                    (item.description, item.responsibleID, dataText, item.goal,
+                     item.id) # ID no final
+                )
+                self.__saveData()
+                print(f"KPI (ID: {item.id}) atualizado.")
+            except sqlite3.Error as e:
+                print(f"Erro ao atualizar KPI (ID: {item.id}): {e}")
+        
+        # --- Bloco Else ---
+        else:
+            print(f"[ERRO] Tipo de item desconhecido para atualização: {type(item)}")
+
     def deleteItem(self, item: Entity):
         """Remove um item do banco de dados, de acordo com o tipo da entidade."""
         
@@ -323,6 +450,48 @@ class Database:
                 responsibleIds=row["responsibleIds"]
             )
         return person
+    
+    def getCompanyById(self, company_id: str):
+        query = "SELECT * FROM company WHERE id = ?"
+        df = pd.read_sql(query, self.__db, params=(company_id,))
+        
+        if df.empty:
+            return None
+        
+        row = df.iloc[0]
+        # Desserializa os campos JSON
+        rpeIds = json.loads(row["rpeIds"]) if row["rpeIds"] else []
+        departmentsIds = json.loads(row["departmentsIds"]) if row["departmentsIds"] else []
+        directorsIds = json.loads(row["directorsIds"]) if row["directorsIds"] else []
+        
+        # Recria o objeto Company
+        return Company(
+            id=row["id"],
+            name=row["name"],
+            rpeIds=rpeIds,
+            cnpj=row["cnpj"],
+            departmentsIds=departmentsIds,
+            directorsIds=directorsIds
+        )
+
+    def getKPIById(self, kpi_id: str):
+        query = "SELECT * FROM kpi WHERE id = ?"
+        df = pd.read_sql(query, self.__db, params=(kpi_id,))
+        
+        if df.empty:
+            return None
+            
+        row = df.iloc[0]
+        # Desserializa o vetor de floats
+        data_list = json.loads(row["data"]) if row["data"] else []
+        
+        return KPI(
+            id=row["id"],
+            description=row["description"],
+            responsibleID=row["responsibleID"],
+            data=data_list,
+            goal=row["goal"]
+        )
     
     def close(self):
         """Fecha a conexão com o banco."""
