@@ -1,4 +1,4 @@
-from import Group
+from group import Group
 
 class Department(Group):
     def __init__(self, id : int, name : str):
@@ -8,6 +8,9 @@ class Department(Group):
 
     def addTeam(self, teamID : int):
         self.__teamIDs.append(teamID)
+    
+    def removeTeam(self, teamID : int):
+        self.__departmentIDs.remove(teamID)
 
     @property
     def directorID(self):

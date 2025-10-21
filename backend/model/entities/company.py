@@ -8,3 +8,10 @@ class Company(Group):
 
     def addDepartment(self, departmentID : int):
         self.__departmentIDs.append(departmentID)
+
+    def removeDepartment(self, departmentID : int):
+        self.__departmentIDs.remove(departmentID)
+
+    @property
+    def cnpj(self):
+        return self.__cnpj

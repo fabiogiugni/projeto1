@@ -1,4 +1,4 @@
-from import Group
+from group import Group
 
 class Team(Group):
     def __init__(self, id : int, name : str):
@@ -6,15 +6,19 @@ class Team(Group):
         self.__employeeIDs = []
         self.__managerID = None
 
-    def addTeam(self, employeeID : int):
+    def addEmployee(self, employeeID : int):
         self.__employeeIDs.append(employeeID)
+
+    def removeEmployee(self, employeeID : int):
+        self.__departmentIDs.remove(employeeID)
 
     @property
     def managerID(self):
         return self.__managerID
 
     @managerID.setter
-    def managerIDrID(self, directorId : int):
+    def managerID(self, directorId : int):
         self.__managerID = managerId
+        
         
     
