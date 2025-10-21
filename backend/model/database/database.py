@@ -12,6 +12,7 @@ from team import Team
 from rpe import RPE
 from objective import Objective
 from kpi import KPI
+from kr import KR
 
 class Database:
 
@@ -236,6 +237,27 @@ class Database:
             except sqlite3.IntegrityError as e:
                 print(f"Erro ao adicionar KPI (ID já existe?): {e}")
 
+        elif isinstance(item, KR):
+
+            # Serializa o "vetor de floats" para JSON/TEXT
+            dataText = json.dumps(item.data)
+
+            try:
+                self.__db.execute(
+                    "INSERT INTO kpi (id, description, responsibleID, data, goal) VALUES (?, ?, ?, ?, ?)", (
+                        item.id,
+                        item.description,
+                        item.responsibleID,
+                        dataText, # Salva o vetor como texto
+                        -1
+                    )
+                )
+                self.__saveData()
+                print(f"KR {item.id} adicionado.")
+
+            except sqlite3.IntegrityError as e:
+                print(f"Erro ao adicionar KPI (ID já existe?): {e}")
+
         else:
             print(f"[ERRO] Tipo de item desconhecido: {type(item)}")
 
@@ -450,10 +472,10 @@ class Database:
                 responsibleIds=row["responsibleIds"]
             )
         return person
-    
-    def getCompanyById(self, company_id: str):
+
+    def getCompanyById(self, companyID: str):
         query = "SELECT * FROM company WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(company_id,))
+        df = pd.read_sql(query, self.__db, params=(companyID,))
         
         if df.empty:
             return None
@@ -474,6 +496,49 @@ class Database:
             directorsIds=directorsIds
         )
 
+    def getDepartmentById(self, departmentID: str):
+        query = "SELECT * FROM department WHERE id = ?"
+        df = pd.read_sql(query, self.__db, params=(departmentID,))
+        
+        if df.empty:
+            return None
+        
+        row = df.iloc[0]
+        # Desserializa os campos JSON
+        rpeIds = json.loads(row["rpeIds"]) if row["rpeIds"] else []
+        teamsIds = json.loads(row["teamsIds"]) if row["teamsIds"] else []
+        
+        # Recria o objeto Department
+        return Department(
+            id=row["id"],
+            name=row["name"],
+            rpeIds=rpeIds,
+            directorID=row["directorID"],
+            teamsIds=teamsIds
+        )
+
+    def getTeamById(self, teamID: str):
+        query = "SELECT * FROM team WHERE id = ?"
+        df = pd.read_sql(query, self.__db, params=(teamID,))
+        
+        if df.empty:
+            return None
+        
+        row = df.iloc[0]
+        # Desserializa os campos JSON
+        rpeIds = json.loads(row["rpeIds"]) if row["rpeIds"] else []
+        employeeIds = json.loads(row["employeesIds"]) if row["employeesIds"] else []
+        
+        # Recria o objeto Department
+        return Department(
+            id=row["id"],
+            name=row["name"],
+            rpeIds=rpeIds,
+            managerID=row["managerID"],
+            employeeIds=employeeIds
+        )
+
+
     def getKPIById(self, kpi_id: str):
         query = "SELECT * FROM kpi WHERE id = ?"
         df = pd.read_sql(query, self.__db, params=(kpi_id,))
@@ -484,14 +549,21 @@ class Database:
         row = df.iloc[0]
         # Desserializa o vetor de floats
         data_list = json.loads(row["data"]) if row["data"] else []
-        
-        return KPI(
-            id=row["id"],
-            description=row["description"],
-            responsibleID=row["responsibleID"],
-            data=data_list,
-            goal=row["goal"]
-        )
+        if row["goal"]=="-1":
+            return KR(
+                id=row["id"],
+                description=row["description"],
+                responsibleID=row["responsibleID"],
+                data=data_list
+            )
+        else:
+            return KPI(
+                id=row["id"],
+                description=row["description"],
+                responsibleID=row["responsibleID"],
+                data=data_list,
+                goal=row["goal"]
+            )
     
     def close(self):
         """Fecha a conexão com o banco."""
