@@ -17,6 +17,7 @@ from kr import KR
 class Database:
 
     def __init__(self):
+        
         self.__db = sqlite3.connect('database/database.sql')
 
         self.__db.executescript('''
@@ -260,8 +261,10 @@ class Database:
 
         else:
             print(f"[ERRO] Tipo de item desconhecido: {type(item)}")
+            return 1
+        
+        return 0
 
-    
     def updateItem(self, item: Entity):
         """Atualiza um item existente no banco de dados, baseado no seu tipo."""
         
@@ -383,10 +386,12 @@ class Database:
                 print(f"KPI (ID: {item.id}) atualizado.")
             except sqlite3.Error as e:
                 print(f"Erro ao atualizar KPI (ID: {item.id}): {e}")
-        
+                return 1
         # --- Bloco Else ---
         else:
             print(f"[ERRO] Tipo de item desconhecido para atualização: {type(item)}")
+            return 1
+        return 0
 
     def deleteItem(self, item: Entity):
         """Remove um item do banco de dados, de acordo com o tipo da entidade."""
@@ -411,19 +416,23 @@ class Database:
 
             if cursor.rowcount == 0:
                 print(f"[AVISO] Nenhum registro encontrado em '{table_name}' com o ID {item.id}.")
+                return 1
             else:
                 print(f"Item de '{table_name}' com ID {item.id} removido com sucesso.")
         
         except sqlite3.Error as e:
             print(f"Erro ao deletar item de '{table_name}': {e}")
 
-    def getPersonById(self, person_id: str):
+        
+        return Entity(item.id)
+
+    def getPersonByID(self, personID: str):
         """Retorna uma pessoa pelo ID."""
         query = "SELECT * FROM person WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(person_id,))
+        df = pd.read_sql(query, self.__db, params=(personID,))
 
         if df.empty:
-            print(f"[AVISO] Nenhuma pessoa encontrada com o ID {person_id}.")
+            print(f"[AVISO] Nenhuma pessoa encontrada com o ID {personID}.")
             return None
 
         # Converte o campo JSON de volta para lista
@@ -473,7 +482,7 @@ class Database:
             )
         return person
 
-    def getCompanyById(self, companyID: str):
+    def getCompanyByID(self, companyID: str):
         query = "SELECT * FROM company WHERE id = ?"
         df = pd.read_sql(query, self.__db, params=(companyID,))
         
@@ -496,7 +505,7 @@ class Database:
             directorsIds=directorsIds
         )
 
-    def getDepartmentById(self, departmentID: str):
+    def getDepartmentByID(self, departmentID: str):
         query = "SELECT * FROM department WHERE id = ?"
         df = pd.read_sql(query, self.__db, params=(departmentID,))
         
@@ -517,7 +526,7 @@ class Database:
             teamsIds=teamsIds
         )
 
-    def getTeamById(self, teamID: str):
+    def getTeamByID(self, teamID: str):
         query = "SELECT * FROM team WHERE id = ?"
         df = pd.read_sql(query, self.__db, params=(teamID,))
         
@@ -530,7 +539,7 @@ class Database:
         employeeIds = json.loads(row["employeesIds"]) if row["employeesIds"] else []
         
         # Recria o objeto Department
-        return Department(
+        return Team(
             id=row["id"],
             name=row["name"],
             rpeIds=rpeIds,
@@ -538,10 +547,70 @@ class Database:
             employeeIds=employeeIds
         )
 
+    def getObjectiveById(self, objectiveID: str):
+        """
+        Retorna um objeto Objective pelo seu ID.
+        """
+        query = "SELECT * FROM objective WHERE id = ?"
+        df = pd.read_sql(query, self.__db, params=(objectiveID,))
 
-    def getKPIById(self, kpi_id: str):
+        if df.empty:
+            print(f"[AVISO] Nenhum Objective encontrado com o ID {objectiveID}.")
+            return None
+
+        # Pega a primeira (e única) linha
+        row = df.iloc[0]
+
+        # Desserializa os campos JSON de volta para listas
+        krIdsText = json.loads(row["krIds"]) if row["krIds"] else []
+        kpiIdsText = json.loads(row["kpiIds"]) if row["kpiIds"] else []
+
+        try:
+            # Recria o objeto Objective
+            return Objective(
+                id=row["id"],
+                description=row["description"],
+                responsibleID=row["responsibleID"],
+                krIds=krIdsText,
+                kpiIds=kpiIdsText
+            )
+        
+        except Exception as e:
+            print(f"Erro ao recriar objeto Objective: {e}")
+            return None
+
+    def getRPEById(self, rpeID: str):
+        """
+        Retorna um objeto RPE pelo seu ID.
+        """
+        query = "SELECT * FROM rpe WHERE id = ?"
+        df = pd.read_sql(query, self.__db, params=(rpeID,))
+
+        if df.empty:
+            print(f"[AVISO] Nenhum RPE encontrado com o ID {rpeID}.")
+            return None
+
+        # Pega a primeira (e única) linha
+        row = df.iloc[0]
+
+        # Desserializa o campo JSON de volta para uma lista
+        objectivesIdsText = json.loads(row["objectivesIds"]) if row["objectivesIds"] else []
+
+        try:
+            # Recria o objeto RPE
+            return RPE(
+                id=row["id"],
+                description=row["description"],
+                responsibleID=row["responsibleID"],
+                objectivesIds=objectivesIdsText
+            )
+        except Exception as e:
+            print(f"Erro ao recriar objeto RPE: {e}")
+            return None
+
+    def getKPIByID(self, kpiID: str):
         query = "SELECT * FROM kpi WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(kpi_id,))
+        df = pd.read_sql(query, self.__db, params=(kpiID,))
         
         if df.empty:
             return None
@@ -565,6 +634,56 @@ class Database:
                 goal=row["goal"]
             )
     
+    def getAllCompanyRPEs(self, company: Company) -> list: # Retorna list[RPE]
+        """
+        Retorna uma lista de todos os objetos RPE associados a uma Company específica.
+        """
+        # 1. Pega a lista de IDs de RPE do objeto Company
+        rpeIDText = company.rpeIds
+        
+        # 2. Se a lista estiver vazia, não há nada para buscar.
+        if not rpeIDText:
+            print(f"[INFO] Companhia {company.name} não possui RPEs associados.")
+            return [] # Retorna uma lista vazia
+            
+        # 3. Cria os placeholders (?) para a consulta SQL.
+        # Se a lista for ['id1', 'id2', 'id3'], placeholders será "?,?,?"
+        placeholders = ','.join(['?'] * len(rpeIDText))
+        
+        # 4. Cria a consulta SQL
+        # Esta é a forma segura de fazer "WHERE id IN (lista)"
+        query = f"SELECT * FROM rpe WHERE id IN ({placeholders})"
+        
+        # 5. Executa a consulta
+        # 'params' recebe a lista de IDs para preencher os '?'
+        df = pd.read_sql(query, self.__db, params=rpeIDText)
+        
+        if df.empty:
+            print(f"[AVISO] A Companhia {company.name} tem IDs de RPEs, mas eles não foram encontrados no banco.")
+            return []
+            
+        # 6. Converte o DataFrame em uma lista de objetos RPE
+        # (Esta lógica é a mesma do seu 'getAllRPEs')
+        rpeList = []
+        for row in df.itertuples(index=False):
+            
+            # Desserializa o campo JSON
+            objectivesIds_list = json.loads(row.objectivesIds) if row.objectivesIds else []
+            
+            try:
+                # Cria o objeto RPE e o adiciona à lista
+                rpe = RPE(
+                    id=row.id,
+                    description=row.description,
+                    responsibleID=row.responsibleID,
+                    objectivesIds=objectivesIds_list
+                )
+                rpeList.append(rpe)
+            except Exception as e:
+                print(f"Erro ao recriar RPE (ID: {row.id}): {e}")
+                
+        return rpeList
+
     def close(self):
         """Fecha a conexão com o banco."""
         self.__db.close()
