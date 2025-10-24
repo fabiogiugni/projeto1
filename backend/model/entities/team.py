@@ -1,20 +1,28 @@
-from import Group
+from group import Group
 
 class Team(Group):
-    def __init__(self, id : int, name : str):
-        super(id, name)
+    def __init__(self, id : str, name : str):
+        super().__init__(id, name)
         self.__employeeIDs = []
         self.__managerID = None
 
-    def addTeam(self, employeeID : int):
+    def addEmployee(self, employeeID : str):
         self.__employeeIDs.append(employeeID)
+
+    def removeEmployee(self, employeeID : str):
+        self.__departmentIDs.remove(employeeID)
+
+    @property
+    def employeeIDs(self):
+        return self.__employeeIDs
 
     @property
     def managerID(self):
         return self.__managerID
 
     @managerID.setter
-    def managerIDrID(self, directorId : int):
-        self.__managerID = managerId
+    def managerID(self, managerID : str):
+        self.__managerID = managerID
+        
         
     
