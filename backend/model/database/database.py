@@ -481,6 +481,62 @@ class Database:
                 responsibleIds=row["responsibleIds"]
             )
         return person
+    
+    def getPersonByEmail(self, email: str):
+        """Retorna uma pessoa pelo email."""
+        query = "SELECT * FROM person WHERE email = ?"
+        df = pd.read_sql(query, self.__db, params=(email,))
+
+        if df.empty:
+            print(f"[AVISO] Nenhuma pessoa encontrada com o email {email}.")
+            return None
+
+        # Converte o campo JSON de volta para lista
+        df["responsibleIds"] = df["responsibleIds"].apply(
+            lambda x: json.loads(x) if x else []
+        )
+
+        # Constrói um objeto Person a partir do DataFrame
+        row = df.iloc[0]
+        if row["role"] == "Employee":
+            person = Employee(
+                id=row["id"],
+                name=row["name"],
+                cpf=row["cpf"],
+                companyID=row["companyID"],
+                departmentID=row["departmentID"],
+                teamID=row["teamID"],
+                role=row["role"],
+                email=row["email"],
+                password=row["password"]
+            )
+        elif row["role"] == "Manager":
+            person = Manager(
+                id=row["id"],
+                name=row["name"],
+                cpf=row["cpf"],
+                companyID=row["companyID"],
+                departmentID=row["departmentID"],
+                teamID=row["teamID"],
+                role=row["role"],
+                email=row["email"],
+                password=row["password"],
+                responsibleIds=row["responsibleIds"]
+            )
+        elif row["role"] == "Director":
+            person = Director(
+                id=row["id"],
+                name=row["name"],
+                cpf=row["cpf"],
+                companyID=row["companyID"],
+                departmentID=row["departmentID"],
+                teamID=row["teamID"],
+                role=row["role"],
+                email=row["email"],
+                password=row["password"],
+                responsibleIds=row["responsibleIds"]
+            )
+        return person
 
     def getCompanyByID(self, companyID: str):
         query = "SELECT * FROM company WHERE id = ?"
