@@ -3,6 +3,17 @@ from database import Database
 
 class Person(Entity):
 
+    def __init__(self, id:str, name:str, cpf:str, role:str, companyID: str, departmentID: str, teamID: str, email: str, password: str):
+        super().__init__(id)
+        self._name = name
+        self._cpf = cpf
+        self._role = role
+        self._companyID = companyID
+        self._departmentID = departmentID
+        self._teamID = teamID
+        self.__email = email
+        self.__password = password
+
     def __init__(self, name:str, cpf:str, role:str, companyID: str, departmentID: str, teamID: str, email: str, password: str):
         super().__init__()
         self._name = name
