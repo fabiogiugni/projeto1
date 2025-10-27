@@ -3,22 +3,22 @@ from database import Database
 
 class Person(Entity):
 
-    def __init__(self, id:str, name:str, cpf:str, role:str, companyID: str, departmentID: str, teamID: str, email: str, password: str):
+    def __init__(self, id:str, name:str, cpf:str, companyID: str, departmentID: str, teamID: str, email: str, password: str):
         super().__init__(id)
         self._name = name
         self._cpf = cpf
-        self._role = role
+        self._role = "Employee"
         self._companyID = companyID
         self._departmentID = departmentID
         self._teamID = teamID
         self.__email = email
         self.__password = password
 
-    def __init__(self, name:str, cpf:str, role:str, companyID: str, departmentID: str, teamID: str, email: str, password: str):
+    def __init__(self, name:str, cpf:str, companyID: str, departmentID: str, teamID: str, email: str, password: str):
         super().__init__()
         self._name = name
         self._cpf = cpf
-        self._role = role
+        self._role = "Employee"
         self._companyID = companyID
         self._departmentID = departmentID
         self._teamID = teamID
@@ -77,5 +77,5 @@ class Person(Entity):
         else:
             return False
     
-    def getRPE(self, filters: str, db : Database):
+    def getRPE(self, filters: str, db : Database): #Falta implementar (não entendi o que seria)
         pass
