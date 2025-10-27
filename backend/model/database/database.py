@@ -1,6 +1,6 @@
 import sqlite3
-import pandas as pd
-import json
+from typing import Optional
+
 from entity import Entity
 from person import Person
 from employee import Employee
@@ -14,454 +14,160 @@ from objective import Objective
 from kpi import KPI
 from kr import KR
 
+
 class Database:
 
-    def __init__(self):
+    def __init__(self, db_path: str = 'database/database.db'):
         
-        self.__db = sqlite3.connect('database/database.db')
+        self.__db = sqlite3.connect(db_path)
+        
+        self.__db.execute("PRAGMA foreign_keys = ON;")
 
         self.__db.executescript('''
+        
+            CREATE TABLE IF NOT EXISTS company (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                cnpj TEXT UNIQUE
+            );
+
+            CREATE TABLE IF NOT EXISTS department (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                companyID TEXT, 
+                directorID TEXT,
+                FOREIGN KEY(companyID) REFERENCES company(id) ON DELETE CASCADE,
+                FOREIGN KEY(directorID) REFERENCES person(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS team (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                departmentID TEXT,
+                managerID TEXT,
+                FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE CASCADE,
+                FOREIGN KEY(managerID) REFERENCES person(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS person (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 cpf TEXT UNIQUE,
                 companyID TEXT,
                 departmentID TEXT,
-                teamID TEXT,
                 role TEXT,
                 email TEXT,
                 password TEXT,
-                responsibleIds TEXT
-                )
-            CREATE TABLE IF NOT EXISTS company (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                rpeIds TEXT,
-                cnpj TEXT UNIQUE,
-                departmentsIds TEXT,
-                directorsIds TEXT
-                )
-            CREATE TABLE IF NOT EXISTS department (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                rpeIds TEXT,
-                directorID TEXT,
-                teamsIds TEXT
-                )
-            CREATE TABLE IF NOT EXISTS team (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                rpeIds TEXT,
-                managerID TEXT,
-                employeeIds TEXT
-                )
+                FOREIGN KEY(companyID) REFERENCES company(id) ON DELETE SET NULL,
+                FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS rpe (
                 id TEXT PRIMARY KEY,
                 description TEXT,
                 responsibleID TEXT,
                 date TEXT,
-                objectivesIds TEXT
-                )
+                FOREIGN KEY(responsibleID) REFERENCES person(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS objective (
                 id TEXT PRIMARY KEY,
                 description TEXT,
+                rpeID TEXT,
                 responsibleID TEXT,
                 date TEXT,
-                krIds TEXT,
-                kpiIds TEXT
-                )
+                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE,
+                FOREIGN KEY(responsibleID) REFERENCES person(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS kpi (
                 id TEXT PRIMARY KEY,
                 description TEXT,
                 responsibleID TEXT,
                 date TEXT,
                 data TEXT,
-                goal FLOAT
-                )
+                goal FLOAT,
+                FOREIGN KEY(responsibleID) REFERENCES person(id) ON DELETE SET NULL
+            );
+
+            --- TABELAS DE JUNÇÃO (Muitos-para-Muitos) ---
+
+            CREATE TABLE IF NOT EXISTS team_members (
+                teamID TEXT NOT NULL,
+                personID TEXT NOT NULL,
+                PRIMARY KEY (teamID, personID),
+                FOREIGN KEY(teamID) REFERENCES team(id) ON DELETE CASCADE,
+                FOREIGN KEY(personID) REFERENCES person(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS person_responsibles (
+                personID TEXT NOT NULL,
+                responsibleID TEXT NOT NULL,
+                PRIMARY KEY (personID, responsibleID),
+                FOREIGN KEY(personID) REFERENCES person(id) ON DELETE CASCADE,
+                FOREIGN KEY(responsibleID) REFERENCES person(id) ON DELETE CASCADE
+            );
+            
+            CREATE TABLE IF NOT EXISTS company_directors (
+                companyID TEXT NOT NULL,
+                personID TEXT NOT NULL,
+                PRIMARY KEY (companyID, personID),
+                FOREIGN KEY(companyID) REFERENCES company(id) ON DELETE CASCADE,
+                FOREIGN KEY(personID) REFERENCES person(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS company_rpes (
+                companyID TEXT NOT NULL,
+                rpeID TEXT NOT NULL,
+                PRIMARY KEY (companyID, rpeID),
+                FOREIGN KEY(companyID) REFERENCES company(id) ON DELETE CASCADE,
+                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS department_rpes (
+                departmentID TEXT NOT NULL,
+                rpeID TEXT NOT NULL,
+                PRIMARY KEY (departmentID, rpeID),
+                FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE CASCADE,
+                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE
+            );
+            
+            CREATE TABLE IF NOT EXISTS team_rpes (
+                teamID TEXT NOT NULL,
+                rpeID TEXT NOT NULL,
+                PRIMARY KEY (teamID, rpeID),
+                FOREIGN KEY(teamID) REFERENCES team(id) ON DELETE CASCADE,
+                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS objective_kpis (
+                objectiveID TEXT NOT NULL,
+                kpiID TEXT NOT NULL,
+                PRIMARY KEY (objectiveID, kpiID),
+                FOREIGN KEY(objectiveID) REFERENCES objective(id) ON DELETE CASCADE,
+                FOREIGN KEY(kpiID) REFERENCES kpi(id) ON DELETE CASCADE
+            );
             ''')
         self.__saveData()
+        print("LOG: Banco de dados inicializado com schema relacional.")
 
     def __saveData(self):
-        """Salva as alterações pendentes."""
+        """Salva (commita) as alterações pendentes."""
         self.__db.commit()
 
-    def addItem(self, item: Entity):
-        if isinstance(item, Person):
-            
-            if(item.role == "Director" or item.role == "Manager"):
-                # --- Serializa a lista de IDs para texto (JSON) ---
-                responsibleIdsText = json.dumps(item.responsibleIds)
-            else:
-                responsibleIdsText = json.dumps([])
+    def __del__(self):
+        """ Garante que a conexão com o banco seja fechada. """
+        if self.__db:
+            self.__db.close()
+            print("LOG: Conexão com o banco de dados fechada.")
 
-            try:
-                # Usando '?' para evitar SQL Injection
-                self.__db.execute(
-                    "INSERT INTO person (id, name, cpf, companyID, departmentID, teamID, role, email, password, responsibleIds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
-                        item.id, 
-                        item.name, 
-                        item.cpf,
-                        item.companyID,
-                        item.departmentID,
-                        item.teamID,
-                        item.role,
-                        item.email,
-                        item.password,
-                        responsibleIdsText)
-                )
-                self.__saveData()
-                print(f"Pessoa {item.name} adicionada.")
-            
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar pessoa (ID ou Email já existe?): {e}")
-
-        elif isinstance(item, Company):
-            
-            # --- Serializa a lista de IDs para texto (JSON) ---
-            rpeIdsText = json.dumps(item.rpeIds)
-            departmentsIdsText = json.dumps(item.departmentsIds)
-            directorsIdsText = json.dumps(item.directorsIds)
-
-            try:
-                # Usando '?' para evitar SQL Injection
-                self.__db.execute(
-                    "INSERT INTO company (id, name, rpeIds, cnpj, departmentsIds, directorsIds) VALUES (?, ?, ?, ?, ?, ?)", (
-                        item.id, 
-                        item.name, 
-                        rpeIdsText,
-                        item.cnpj,
-                        departmentsIdsText,
-                        directorsIdsText)
-                )
-                self.__saveData()
-                print(f"Company {item.name} adicionada.")
-            
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar Company (ID ou CNPJ já existe?): {e}")
-        
-        elif isinstance(item, Department):
-            
-            # --- Serializa a lista de IDs para texto (JSON) ---
-            rpeIdsText = json.dumps(item.rpeIds)
-            teamsIdsText = json.dumps(item.directorsIds)
-
-            try:
-                # Usando '?' para evitar SQL Injection
-                self.__db.execute(
-                    "INSERT INTO department (id, name, rpeIds, directorID, teamsIds) VALUES (?, ?, ?, ?, ?)", (
-                        item.id, 
-                        item.name, 
-                        rpeIdsText,
-                        item.directorID,
-                        teamsIdsText)
-                )
-                self.__saveData()
-                print(f"Department {item.name} adicionado.")
-            
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar Department (ID ou DirectorID já existe?): {e}")
-        
-        elif isinstance(item, Team):
-            
-            # --- Serializa a lista de IDs para texto (JSON) ---
-            rpeIdsText = json.dumps(item.rpeIds)
-            employeeIdsText = json.dumps(item.directorsIds)
-
-            try:
-                # Usando '?' para evitar SQL Injection
-                self.__db.execute(
-                    "INSERT INTO team (id, name, rpeIds, managerID, employeeIds) VALUES (?, ?, ?, ?, ?)", (
-                        item.id, 
-                        item.name, 
-                        rpeIdsText,
-                        item.managerID,
-                        employeeIdsText)
-                )
-                self.__saveData()
-                print(f"Team {item.name} adicionado.")
-            
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar Team (ID ou ManagerID já existe?): {e}")
-
-        elif isinstance(item, RPE):
-
-             # --- Serializa a lista de IDs para texto (JSON) ---
-            objectivesIdsText = json.dumps(item.objectivesIds)
-
-            try:
-                self.__db.execute(
-                    "INSERT INTO rpe (id, description, responsibleID, objectivesIds) VALUES (?, ?, ?, ?)", (
-                        item.id,
-                        item.description,
-                        item.responsibleID,
-                        item.date,
-                        objectivesIdsText
-                    )
-                )
-                self.__saveData()
-                print(f"RPE {item.id} adicionado.")
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar RPE (ID já existe?): {e}")
-
-        elif isinstance(item, Objective):
-
-             # --- Serializa a lista de IDs para texto (JSON) ---
-            krIdsText = json.dumps(item.krIds)
-            kpiIdsText = json.dumps(item.kpiIds)
-
-            try:
-                self.__db.execute(
-                    "INSERT INTO objective (id, description, responsibleID, krIds, kpiIds) VALUES (?, ?, ?, ?, ?)", (
-                        item.id,
-                        item.description,
-                        item.responsibleID,
-                        item.date,
-                        krIdsText,
-                        kpiIdsText
-                    )
-                )
-                self.__saveData()
-                print(f"Objective {item.id} adicionado.")
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar Objective (ID já existe?): {e}")
-
-        elif isinstance(item, KPI):
-
-            # Serializa o "vetor de floats" para JSON/TEXT
-            dataText = json.dumps(item.data)
-
-            try:
-                self.__db.execute(
-                    "INSERT INTO kpi (id, description, responsibleID, data, goal) VALUES (?, ?, ?, ?, ?)", (
-                        item.id,
-                        item.description,
-                        item.responsibleID,
-                        item.date,
-                        dataText, # Salva o vetor como texto
-                        item.goal
-                    )
-                )
-                self.__saveData()
-                print(f"KPI {item.id} adicionado.")
-
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar KPI (ID já existe?): {e}")
-
-        elif isinstance(item, KR):
-
-            # Serializa o "vetor de floats" para JSON/TEXT
-            dataText = json.dumps(item.data)
-
-            try:
-                self.__db.execute(
-                    "INSERT INTO kpi (id, description, responsibleID, data, goal) VALUES (?, ?, ?, ?, ?)", (
-                        item.id,
-                        item.description,
-                        item.responsibleID,
-                        dataText, # Salva o vetor como texto
-                        -1
-                    )
-                )
-                self.__saveData()
-                print(f"KR {item.id} adicionado.")
-
-            except sqlite3.IntegrityError as e:
-                print(f"Erro ao adicionar KPI (ID já existe?): {e}")
-
-        else:
-            print(f"[ERRO] Tipo de item desconhecido: {type(item)}")
-            return 1
-        
-        return 0
     
-    def addTeamMember(self, personID: str, teamId: str):
+    def deleteItem(self, item: Entity) -> Optional[int]:
         """
-        Adiciona uma pessoa a um time.
-        Isso atualiza DUAS tabelas: 'person' (seta teamID) e 'team' (adiciona a employeeIds).
-        Usa uma transação para garantir que ambas as atualizações ocorram ou nenhuma ocorra.
+        Remove um item do banco de dados.
+        O banco de dados cuidará automaticamente da limpeza de referências
+        (graças a 'ON DELETE CASCADE' e 'ON DELETE SET NULL').
         """
-        try:
-            # 'with self.__db:' inicia uma transação (COMMIT ou ROLLBACK automático)
-            with self.__db:
-                cursor = self.__db.cursor()
-
-                # --- Etapa 1: Atualizar a tabela 'person' ---
-                # Define o teamID da pessoa
-                cursor.execute("UPDATE person SET teamID = ? WHERE id = ?", (teamId, personID))
-                
-                if cursor.rowcount == 0:
-                    raise Exception(f"Pessoa com ID {personID} não encontrada.")
-
-                # --- Etapa 2: Atualizar a tabela 'team' ---
-                # 2a. Obter a lista atual de 'employeeIds'
-                cursor.execute("SELECT employeeIds FROM team WHERE id = ?", (teamId,))
-                row = cursor.fetchone()
-
-                if row is None:
-                    raise Exception(f"Time com ID {teamId} não encontrado.")
-
-                currentIdsStr = row[0]
-                
-                # 2b. Manipular a lista em Python
-                if currentIdsStr:
-                    id_list = currentIdsStr.split(',')
-                else:
-                    id_list = []
-
-                # 2c. Adicionar o novo ID se ainda não estiver na lista
-                if personID not in id_list:
-                    id_list.append(personID)
-                    newIdsStr = ",".join(id_list)
-                    
-                    # 2d. Salvar a nova lista de volta no banco
-                    cursor.execute("UPDATE team SET employeeIds = ? WHERE id = ?", (newIdsStr, teamId))
-            
-            print(f"Membro {personID} adicionado ao time {teamId} com sucesso.")
-            return True
-        
-        except sqlite3.Error as e:
-            print(f"Erro de Banco de Dados ao adicionar membro: {e}")
-            return False
-        except Exception as e:
-            print(f"Erro: {e}") # Imprime "Pessoa não encontrada" ou "Time não encontrado"
-            return False
-
-    def updateItem(self, item: Entity): 
-        """Atualiza um item existente no banco de dados, baseado no seu tipo."""
-        
-        # --- Bloco Person ---
-        if isinstance(item, Person):
-
-            if(item.role == "Director" or item.role == "Manager"):
-                # --- Serializa a lista de IDs para texto (JSON) ---
-                responsibleIdsText = json.dumps(item.responsibleIds)
-            else:
-                responsibleIdsText = json.dumps([])
-
-            try:
-                self.__db.execute(
-                    """UPDATE person 
-                       SET name = ?, cpf = ?, companyID = ?, departmentID = ?, teamID = ?, 
-                           role = ?, email = ?, password = ?, responsibleIds = ?
-                       WHERE id = ?""", 
-                    (item.name, item.cpf, item.companyID, item.departmentID, item.teamID,
-                     item.role, item.email, item.password, responsibleIdsText, 
-                     item.id) # O ID é o último, para a cláusula WHERE
-                )
-                self.__saveData()
-                print(f"Pessoa {item.name} (ID: {item.id}) atualizada.")
-            except sqlite3.Error as e:
-                print(f"Erro ao atualizar Pessoa (ID: {item.id}): {e}")
-
-        # --- Bloco Company ---
-        elif isinstance(item, Company):
-            rpeIdsText = json.dumps(item.rpeIds)
-            departmentsIdsText = json.dumps(item.departmentsIds)
-            directorsIdsText = json.dumps(item.directorsIds)
-            try:
-                self.__db.execute(
-                    """UPDATE company
-                       SET name = ?, rpeIds = ?, cnpj = ?, departmentsIds = ?, directorsIds = ?
-                       WHERE id = ?""",
-                    (item.name, rpeIdsText, item.cnpj, departmentsIdsText, directorsIdsText,
-                     item.id) # ID no final
-                )
-                self.__saveData()
-                print(f"Company {item.name} (ID: {item.id}) atualizada.")
-            except sqlite3.Error as e:
-                print(f"Erro ao atualizar Company (ID: {item.id}): {e}")
-        
-        # --- Bloco Department ---
-        elif isinstance(item, Department):
-            rpeIdsText = json.dumps(item.rpeIds)
-            teamsIdsText = json.dumps(item.teamsIds)
-            try:
-                self.__db.execute(
-                    """UPDATE department
-                       SET name = ?, rpeIds = ?, directorId = ?, teamsIds = ?
-                       WHERE id = ?""",
-                    (item.name, rpeIdsText, item.directorId, teamsIdsText,
-                     item.id) # ID no final
-                )
-                self.__saveData()
-                print(f"Department {item.name} (ID: {item.id}) atualizado.")
-            except sqlite3.Error as e:
-                print(f"Erro ao atualizar Department (ID: {item.id}): {e}")
-        
-        # --- Bloco Team ---
-        elif isinstance(item, Team):
-            rpeIdsText = json.dumps(item.rpeIds)
-            employeeIdsText = json.dumps(item.employeeIds)
-            try:
-                self.__db.execute(
-                    """UPDATE team
-                       SET name = ?, rpeIds = ?, managerId = ?, employeeIds = ?
-                       WHERE id = ?""",
-                    (item.name, rpeIdsText, item.managerId, employeeIdsText,
-                     item.id) # ID no final
-                )
-                self.__saveData()
-                print(f"Team {item.name} (ID: {item.id}) atualizado.")
-            except sqlite3.Error as e:
-                print(f"Erro ao atualizar Team (ID: {item.id}): {e}")
-
-        # --- Bloco RPE ---
-        elif isinstance(item, RPE):
-            objectivesIdsText = json.dumps(item.objectivesIds)
-            try:
-                self.__db.execute(
-                    """UPDATE rpe
-                       SET description = ?, responsibleID = ?, date = ?, objectivesIds = ?
-                       WHERE id = ?""",
-                    (item.description, item.responsibleID, item.date, objectivesIdsText,
-                     item.id) # ID no final
-                )
-                self.__saveData()
-                print(f"RPE (ID: {item.id}) atualizado.")
-            except sqlite3.Error as e:
-                print(f"Erro ao atualizar RPE (ID: {item.id}): {e}")
-
-        # --- Bloco Objective ---
-        elif isinstance(item, Objective):
-            krIdsText = json.dumps(item.krIds)
-            kpiIdsText = json.dumps(item.kpiIds)
-            try:
-                self.__db.execute(
-                    """UPDATE objective
-                       SET description = ?, responsibleID = ?, date = ?, krIds = ?, kpiIds = ?
-                       WHERE id = ?""",
-                    (item.description, item.responsibleID, item.date, krIdsText, kpiIdsText,
-                     item.id) # ID no final
-                )
-                self.__saveData()
-                print(f"Objective (ID: {item.id}) atualizado.")
-            except sqlite3.Error as e:
-                print(f"Erro ao atualizar Objective (ID: {item.id}): {e}")
-
-        # --- Bloco KPI ---
-        elif isinstance(item, KPI):
-            dataText = json.dumps(item.data) # Serializa o vetor de floats
-            try:
-                self.__db.execute(
-                    """UPDATE kpi
-                       SET description = ?, responsibleID = ?,date = ?, data = ?, goal = ?
-                       WHERE id = ?""",
-                    (item.description, item.responsibleID, item.date, dataText, item.goal,
-                     item.id) # ID no final
-                )
-                self.__saveData()
-                print(f"KPI (ID: {item.id}) atualizado.")
-            except sqlite3.Error as e:
-                print(f"Erro ao atualizar KPI (ID: {item.id}): {e}")
-                return 1
-        # --- Bloco Else ---
-        else:
-            print(f"[ERRO] Tipo de item desconhecido para atualização: {type(item)}")
-            return 1
-        return 0
-
-    def deleteItem(self, item: Entity):
-        """Remove um item do banco de dados, de acordo com o tipo da entidade."""
         
         tableName = None
         if isinstance(item, Person): tableName = "person"
@@ -473,385 +179,476 @@ class Database:
         elif isinstance(item, KPI): tableName = "kpi"
         else:
             print(f"[ERRO] Não é possível deletar tipo desconhecido: {type(item)}")
-            return
+            return None # Retorna None em caso de falha
 
-        try:
-            # Usamos f-string de forma segura pois tableName é controlado internamente
-            query = f"DELETE FROM {tableName} WHERE id = ?"
-            cursor = self.__db.execute(query, (item.id,))
-            self.__saveData()
+        if not hasattr(item, 'id') or not item.id:
+             print(f"[ERRO] Item {type(item)} não possui um ID válido para deleção.")
+             return None
 
-            if cursor.rowcount == 0:
-                print(f"[AVISO] Nenhum registro encontrado em '{tableName}' com o ID {item.id}.")
-                return 1
-            else:
-                print(f"Item de '{tableName}' com ID {item.id} removido com sucesso.")
-        
-        except sqlite3.Error as e:
-            print(f"Erro ao deletar item de '{tableName}': {e}")
-
-        
-        return Entity(item.id)
-    
-    def deleteTeamMember(self, person_id: str, team_id: str):
-        """
-        Remove uma pessoa de um time.
-        Isso atualiza a tabelas 'team' (remove de employeeIds).
-        """
         try:
             with self.__db:
                 cursor = self.__db.cursor()
-
-                # --- Etapa 1: Atualizar a tabela 'team' ---
-                # 1a. Obter a lista atual
-                cursor.execute("SELECT employeeIds FROM team WHERE id = ?", (team_id,))
-                row = cursor.fetchone()
-
-                if row is None:
-                    raise Exception(f"Time com ID {team_id} não encontrado.")
-
-                current_ids_str = row[0]
-
-                # 1b. Manipular a lista
-                if current_ids_str:
-                    id_list = current_ids_str.split(',')
-                    
-                    # 1c. Remover o ID se ele existir na lista
-                    if person_id in id_list:
-                        id_list.remove(person_id)
-                        new_ids_str = ",".join(id_list)
-                        
-                        # 1d. Salvar a nova lista
-                        cursor.execute("UPDATE team SET employeeIds = ? WHERE id = ?", (new_ids_str, team_id))
-                    else:
-                        print(f"Aviso: Membro {person_id} não estava na lista employeeIds do time {team_id}.")
+                query = f"DELETE FROM {tableName} WHERE id = ?"
+                cursor.execute(query, (item.id,))
+                
+                if cursor.rowcount == 0:
+                    print(f"[AVISO] Nenhum registro encontrado em '{tableName}' com o ID {item.id}.")
+                    return 1 # Retorna 1 se nada foi deletado
                 else:
-                    print(f"Aviso: Time {team_id} já estava sem membros na lista.")
-
-            print(f"Membro {person_id} removido do time {team_id} com sucesso.")
-            return True
+                    print(f"Item de '{tableName}' com ID {item.id} removido com sucesso.")
+                    print("   [Limpeza] O banco de dados limpou as referências automaticamente.")
+            return 0 # Retorna 0 para sucesso
 
         except sqlite3.Error as e:
-            print(f"Erro de Banco de Dados ao remover membro: {e}")
-            return False
-        except Exception as e:
-            print(f"Erro: {e}")
-            return False
-
-    def getPersonByID(self, personID: str):
-        """Retorna uma pessoa pelo ID."""
-        query = "SELECT * FROM person WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(personID,))
-
-        if df.empty:
-            print(f"[AVISO] Nenhuma pessoa encontrada com o ID {personID}.")
+            print(f"Erro ao deletar item de '{tableName}' (ROLLBACK executado): {e}")
             return None
 
-        # Converte o campo JSON de volta para lista
-        df["responsibleIds"] = df["responsibleIds"].apply(
-            lambda x: json.loads(x) if x else []
-        )
-
-        # Constrói um objeto Person a partir do DataFrame
-        row = df.iloc[0]
-        if row["role"] == "Employee":
-            person = Person(
-                id=row["id"],
-                name=row["name"],
-                cpf=row["cpf"],
-                companyID=row["companyID"],
-                departmentID=row["departmentID"],
-                teamID=row["teamID"],
-                role=row["role"],
-                email=row["email"],
-                password=row["password"]
-            )
-        elif row["role"] == "Manager":
-            person = Manager(
-                id=row["id"],
-                name=row["name"],
-                cpf=row["cpf"],
-                companyID=row["companyID"],
-                departmentID=row["departmentID"],
-                teamID=row["teamID"],
-                role=row["role"],
-                email=row["email"],
-                password=row["password"],
-                responsibleIds=row["responsibleIds"]
-            )
-        elif row["role"] == "Director":
-            person = Director(
-                id=row["id"],
-                name=row["name"],
-                cpf=row["cpf"],
-                companyID=row["companyID"],
-                departmentID=row["departmentID"],
-                teamID=row["teamID"],
-                role=row["role"],
-                email=row["email"],
-                password=row["password"],
-                responsibleIds=row["responsibleIds"]
-            )
-        return person
+    # --- MÉTODOS DE RELAÇÃO UM-PARA-MUITOS (Assign/Unassign) ---
     
-    def getPersonByEmail(self, email: str):
-        """Retorna uma pessoa pelo email."""
-        query = "SELECT * FROM person WHERE email = ?"
-        df = pd.read_sql(query, self.__db, params=(email,))
+    def _assign_foreign_key(self, table: str, fk_column: str, fk_id: str, primary_id: str) -> bool:
+        """Função auxiliar genérica para definir um FK (relação 1-N)."""
+        try:
+            with self.__db:
+                query = f"UPDATE {table} SET {fk_column} = ? WHERE id = ?"
+                cursor = self.__db.execute(query, (fk_id, primary_id))
+                if cursor.rowcount == 0:
+                    print(f"Aviso: Nenhum registro encontrado em '{table}' com ID {primary_id}.")
+                    return False
+            print(f"'{table}.{fk_column}' atualizado para {fk_id} onde id = {primary_id}.")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erro ao atribuir FK em '{table}': {e}")
+            return False
 
-        if df.empty:
-            print(f"[AVISO] Nenhuma pessoa encontrada com o email {email}.")
-            return None
+    def _unassign_foreign_key(self, table: str, fk_column: str, primary_id: str) -> bool:
+        """Função auxiliar genérica para limpar um FK (relação 1-N)."""
+        return self._assign_foreign_key(table, fk_column, None, primary_id)
 
-        # Converte o campo JSON de volta para lista
-        df["responsibleIds"] = df["responsibleIds"].apply(
-            lambda x: json.loads(x) if x else []
-        )
+    # Relações de Department
+    def assignDepartmentToCompany(self, department_id: str, company_id: str):
+        return self._assign_foreign_key("department", "companyID", company_id, department_id)
 
-        # Constrói um objeto Person a partir do DataFrame
-        row = df.iloc[0]
-        if row["role"] == "Employee":
-            person = Person(
-                id=row["id"],
-                name=row["name"],
-                cpf=row["cpf"],
-                companyID=row["companyID"],
-                departmentID=row["departmentID"],
-                teamID=row["teamID"],
-                role=row["role"],
-                email=row["email"],
-                password=row["password"]
-            )
-        elif row["role"] == "Manager":
-            person = Manager(
-                id=row["id"],
-                name=row["name"],
-                cpf=row["cpf"],
-                companyID=row["companyID"],
-                departmentID=row["departmentID"],
-                teamID=row["teamID"],
-                role=row["role"],
-                email=row["email"],
-                password=row["password"],
-                responsibleIds=row["responsibleIds"]
-            )
-        elif row["role"] == "Director":
-            person = Director(
-                id=row["id"],
-                name=row["name"],
-                cpf=row["cpf"],
-                companyID=row["companyID"],
-                departmentID=row["departmentID"],
-                teamID=row["teamID"],
-                role=row["role"],
-                email=row["email"],
-                password=row["password"],
-                responsibleIds=row["responsibleIds"]
-            )
-        return person
+    def assignDirectorToDepartment(self, director_id: str, department_id: str):
+        return self._assign_foreign_key("department", "directorID", director_id, department_id)
 
-    def getCompanyByID(self, companyID: str):
-        query = "SELECT * FROM company WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(companyID,))
-        
-        if df.empty:
-            return None
-        
-        row = df.iloc[0]
-        # Desserializa os campos JSON
-        rpeIds = json.loads(row["rpeIds"]) if row["rpeIds"] else []
-        departmentsIds = json.loads(row["departmentsIds"]) if row["departmentsIds"] else []
-        directorsIds = json.loads(row["directorsIds"]) if row["directorsIds"] else []
-        
-        # Recria o objeto Company
-        return Company(
-            id=row["id"],
-            name=row["name"],
-            rpeIds=rpeIds,
-            cnpj=row["cnpj"],
-            departmentsIds=departmentsIds,
-            directorsIds=directorsIds
-        )
+    # Relações de Team
+    def assignTeamToDepartment(self, team_id: str, department_id: str):
+        return self._assign_foreign_key("team", "departmentID", department_id, team_id)
 
-    def getDepartmentByID(self, departmentID: str):
-        query = "SELECT * FROM department WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(departmentID,))
-        
-        if df.empty:
-            return None
-        
-        row = df.iloc[0]
-        # Desserializa os campos JSON
-        rpeIds = json.loads(row["rpeIds"]) if row["rpeIds"] else []
-        teamsIds = json.loads(row["teamsIds"]) if row["teamsIds"] else []
-        
-        # Recria o objeto Department
-        return Department(
-            id=row["id"],
-            name=row["name"],
-            rpeIds=rpeIds,
-            directorID=row["directorID"],
-            teamsIds=teamsIds
-        )
+    def assignManagerToTeam(self, manager_id: str, team_id: str):
+        return self._assign_foreign_key("team", "managerID", manager_id, team_id)
 
-    def getTeamByID(self, teamID: str):
-        query = "SELECT * FROM team WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(teamID,))
-        
-        if df.empty:
-            return None
-        
-        row = df.iloc[0]
-        # Desserializa os campos JSON
-        rpeIds = json.loads(row["rpeIds"]) if row["rpeIds"] else []
-        employeeIds = json.loads(row["employeesIds"]) if row["employeesIds"] else []
-        
-        # Recria o objeto Department
-        return Team(
-            id=row["id"],
-            name=row["name"],
-            rpeIds=rpeIds,
-            managerID=row["managerID"],
-            employeeIds=employeeIds
-        )
+    # Relações de Person
+    def assignPersonToCompany(self, person_id: str, company_id: str):
+        return self._assign_foreign_key("person", "companyID", company_id, person_id)
 
-    def getObjectiveById(self, objectiveID: str):
+    def assignPersonToDepartment(self, person_id: str, department_id: str):
+        return self._assign_foreign_key("person", "departmentID", department_id, person_id)
+
+    # Relações de RPE
+    def assignResponsibleToRPE(self, responsible_id: str, rpe_id: str):
+        return self._assign_foreign_key("rpe", "responsibleID", responsible_id, rpe_id)
+
+    # Relações de Objective
+    def assignObjectiveToRPE(self, objective_id: str, rpe_id: str):
+        return self._assign_foreign_key("objective", "rpeID", rpe_id, objective_id)
+        
+    def assignResponsibleToObjective(self, responsible_id: str, objective_id: str):
+        return self._assign_foreign_key("objective", "responsibleID", responsible_id, objective_id)
+
+    # Relações de KPI
+    def assignResponsibleToKPI(self, responsible_id: str, kpi_id: str):
+        return self._assign_foreign_key("kpi", "responsibleID", responsible_id, kpi_id)
+
+
+    # --- MÉTODOS DE RELAÇÃO MUITOS-PARA-MUITOS (Junction Tables) ---
+
+    def _add_junction(self, table: str, col1_name: str, col1_id: str, col2_name: str, col2_id: str) -> bool:
+        """Função auxiliar genérica para inserir em tabela de junção (N-N)."""
+        try:
+            with self.__db:
+                query = f"INSERT INTO {table} ({col1_name}, {col2_name}) VALUES (?, ?)"
+                self.__db.execute(query, (col1_id, col2_id))
+            print(f"Relação adicionada em '{table}' ({col1_id}, {col2_id}).")
+            return True
+        except sqlite3.IntegrityError:
+            print(f"Erro de Integridade: Relação ({col1_id}, {col2_id}) já existe em '{table}' ou IDs não existem.")
+            return False
+        except sqlite3.Error as e:
+            print(f"Erro de DB ao adicionar em '{table}': {e}")
+            return False
+
+    def _delete_junction(self, table: str, col1_name: str, col1_id: str, col2_name: str, col2_id: str) -> bool:
+        """Função auxiliar genérica para deletar de tabela de junção (N-N)."""
+        try:
+            with self.__db:
+                query = f"DELETE FROM {table} WHERE {col1_name} = ? AND {col2_name} = ?"
+                cursor = self.__db.execute(query, (col1_id, col2_id))
+                if cursor.rowcount == 0:
+                    print(f"Aviso: Relação ({col1_id}, {col2_id}) não encontrada em '{table}'.")
+                else:
+                    print(f"Relação removida de '{table}' ({col1_id}, {col2_id}).")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erro de DB ao deletar de '{table}': {e}")
+            return False
+
+    # team_members (Team <-> Person)
+    def addTeamMember(self, team_id: str, person_id: str) -> bool:
+        return self._add_junction("team_members", "teamID", team_id, "personID", person_id)
+
+    def deleteTeamMember(self, team_id: str, person_id: str) -> bool:
+        return self._delete_junction("team_members", "teamID", team_id, "personID", person_id)
+
+    # person_responsibles (Person <-> Person)
+    def addResponsibleToPerson(self, person_id: str, responsible_id: str) -> bool:
+        return self._add_junction("person_responsibles", "personID", person_id, "responsibleID", responsible_id)
+
+    def deleteResponsibleFromPerson(self, person_id: str, responsible_id: str) -> bool:
+        return self._delete_junction("person_responsibles", "personID", person_id, "responsibleID", responsible_id)
+
+    # company_directors (Company <-> Person)
+    def addDirectorToCompany(self, company_id: str, person_id: str) -> bool:
+        return self._add_junction("company_directors", "companyID", company_id, "personID", person_id)
+
+    def deleteDirectorFromCompany(self, company_id: str, person_id: str) -> bool:
+        return self._delete_junction("company_directors", "companyID", company_id, "personID", person_id)
+
+    # company_rpes (Company <-> RPE)
+    def addRpeToCompany(self, company_id: str, rpe_id: str) -> bool:
+        return self._add_junction("company_rpes", "companyID", company_id, "rpeID", rpe_id)
+
+    def deleteRpeFromCompany(self, company_id: str, rpe_id: str) -> bool:
+        return self._delete_junction("company_rpes", "companyID", company_id, "rpeID", rpe_id)
+        
+    # department_rpes (Department <-> RPE)
+    def addRpeToDepartment(self, department_id: str, rpe_id: str) -> bool:
+        return self._add_junction("department_rpes", "departmentID", department_id, "rpeID", rpe_id)
+
+    def deleteRpeFromDepartment(self, department_id: str, rpe_id: str) -> bool:
+        return self._delete_junction("department_rpes", "departmentID", department_id, "rpeID", rpe_id)
+        
+    # team_rpes (Team <-> RPE)
+    def addRpeToTeam(self, team_id: str, rpe_id: str) -> bool:
+        return self._add_junction("team_rpes", "teamID", team_id, "rpeID", rpe_id)
+
+    def deleteRpeFromTeam(self, team_id: str, rpe_id: str) -> bool:
+        return self._delete_junction("team_rpes", "teamID", team_id, "rpeID", rpe_id)
+
+    # objective_kpis (Objective <-> KPI)
+    def addKpiToObjective(self, objective_id: str, kpi_id: str) -> bool:
+        return self._add_junction("objective_kpis", "objectiveID", objective_id, "kpiID", kpi_id)
+
+    def deleteKpiFromObjective(self, objective_id: str, kpi_id: str) -> bool:
+        return self._delete_junction("objective_kpis", "objectiveID", objective_id, "kpiID", kpi_id)
+    
+    def updateItem(self, item: Entity) -> int:
         """
-        Retorna um objeto Objective pelo seu ID.
+        Atualiza os campos diretos de um item no banco de dados.
+        NOTA: Este método NÃO atualiza as relações (listas como employeeIds,
+        rpeIds, etc.). Use os métodos add/delete (ex: addTeamMember) 
+        para gerenciar relações.
         """
-        query = "SELECT * FROM objective WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(objectiveID,))
-
-        if df.empty:
-            print(f"[AVISO] Nenhum Objective encontrado com o ID {objectiveID}.")
-            return None
-
-        # Pega a primeira (e única) linha
-        row = df.iloc[0]
-
-        # Desserializa os campos JSON de volta para listas
-        krIdsText = json.loads(row["krIds"]) if row["krIds"] else []
-        kpiIdsText = json.loads(row["kpiIds"]) if row["kpiIds"] else []
+        
+        query = ""
+        params = ()
 
         try:
-            # Recria o objeto Objective
-            return Objective(
-                id=row["id"],
-                description=row["description"],
-                responsibleID=row["responsibleID"],
-                krIds=krIdsText,
-                kpiIds=kpiIdsText
-            )
-        
-        except Exception as e:
-            print(f"Erro ao recriar objeto Objective: {e}")
-            return None
+            # --- Bloco Person ---
+            if isinstance(item, Person):
+                query = """UPDATE person 
+                           SET name = ?, cpf = ?, companyID = ?, departmentID = ?, 
+                               role = ?, email = ?, password = ?
+                           WHERE id = ?"""
+                params = (item.name, item.cpf, item.companyID, item.departmentID,
+                          item.role, item.email, item.password, 
+                          item.id) # ID por último
 
-    def getRPEById(self, rpeID: str):
-        """
-        Retorna um objeto RPE pelo seu ID.
-        """
-        query = "SELECT * FROM rpe WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(rpeID,))
+            # --- Bloco Company ---
+            elif isinstance(item, Company):
+                query = """UPDATE company
+                           SET name = ?, cnpj = ?
+                           WHERE id = ?"""
+                params = (item.name, item.cnpj, item.id)
 
-        if df.empty:
-            print(f"[AVISO] Nenhum RPE encontrado com o ID {rpeID}.")
-            return None
-
-        # Pega a primeira (e única) linha
-        row = df.iloc[0]
-
-        # Desserializa o campo JSON de volta para uma lista
-        objectivesIdsText = json.loads(row["objectivesIds"]) if row["objectivesIds"] else []
-
-        try:
-            # Recria o objeto RPE
-            return RPE(
-                id=row["id"],
-                description=row["description"],
-                responsibleID=row["responsibleID"],
-                objectivesIds=objectivesIdsText
-            )
-        except Exception as e:
-            print(f"Erro ao recriar objeto RPE: {e}")
-            return None
-
-    def getKPIByID(self, kpiID: str):
-        query = "SELECT * FROM kpi WHERE id = ?"
-        df = pd.read_sql(query, self.__db, params=(kpiID,))
-        
-        if df.empty:
-            return None
+            # --- Bloco Department ---
+            elif isinstance(item, Department):
+                query = """UPDATE department
+                           SET name = ?, companyID = ?, directorID = ?
+                           WHERE id = ?"""
+                params = (item.name, item.companyID, item.directorID, item.id)
             
-        row = df.iloc[0]
-        # Desserializa o vetor de floats
-        data_list = json.loads(row["data"]) if row["data"] else []
-        if row["goal"]=="-1":
-            return KR(
-                id=row["id"],
-                description=row["description"],
-                responsibleID=row["responsibleID"],
-                data=data_list
-            )
-        else:
-            return KPI(
-                id=row["id"],
-                description=row["description"],
-                responsibleID=row["responsibleID"],
-                data=data_list,
-                goal=row["goal"]
-            )
+            # --- Bloco Team ---
+            elif isinstance(item, Team):
+                query = """UPDATE team
+                           SET name = ?, departmentID = ?, managerID = ?
+                           WHERE id = ?"""
+                params = (item.name, item.departmentID, item.managerID, item.id)
+
+            # --- Bloco RPE ---
+            elif isinstance(item, RPE):
+                query = """UPDATE rpe
+                           SET description = ?, responsibleID = ?, date = ?
+                           WHERE id = ?"""
+                params = (item.description, item.responsibleID, item.date, item.id)
+
+            # --- Bloco Objective ---
+            elif isinstance(item, Objective):
+                query = """UPDATE objective
+                           SET description = ?, rpeID = ?, responsibleID = ?, date = ?
+                           WHERE id = ?"""
+                params = (item.description, item.rpeID, item.responsibleID, item.date, item.id)
+
+            # --- Bloco KPI ---
+            elif isinstance(item, KPI):
+                # O campo 'data' ainda pode ser um JSON, se for um vetor
+                dataText = json.dumps(item.data) 
+                query = """UPDATE kpi
+                           SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                           WHERE id = ?"""
+                params = (item.description, item.responsibleID, item.date, dataText, item.goal,
+                          item.id)
+            
+            # --- Bloco Else ---
+            else:
+                print(f"[ERRO] Tipo de item desconhecido para atualização: {type(item)}")
+                return 1
+
+            # Executa a query dentro de uma transação
+            with self.__db:
+                cursor = self.__db.execute(query, params)
+                if cursor.rowcount == 0:
+                     print(f"[AVISO] Nenhum {type(item).__name__} atualizado (ID: {item.id}). ID não encontrado.")
+                     return 1
+            
+            print(f"{type(item).__name__} (ID: {item.id}) atualizado com sucesso.")
+            return 0 # Sucesso
+
+        except sqlite3.Error as e:
+            print(f"Erro ao atualizar {type(item).__name__} (ID: {item.id}): {e}")
+            return 1 # Falha
+        
+        # --- NOVO MÉTODO AUXILIAR PARA PESSOAS ---
     
-    def getAllCompanyRPEs(self, company: Company) -> list: # Retorna list[RPE]
+    def _build_person_from_row(self, cursor: sqlite3.Cursor, row: sqlite3.Row) -> Optional[Person]:
         """
-        Retorna uma lista de todos os objetos RPE associados a uma Company específica.
+        Constrói um objeto Person/Manager/Director a partir de uma linha do banco.
+        Esta função auxiliar é usada por getPersonByID e getPersonByEmail.
         """
-        # 1. Pega a lista de IDs de RPE do objeto Company
-        rpeIDText = company.rpeIds
-        
-        # 2. Se a lista estiver vazia, não há nada para buscar.
-        if not rpeIDText:
-            print(f"[INFO] Companhia {company.name} não possui RPEs associados.")
-            return [] # Retorna uma lista vazia
+        if not row:
+            return None
             
-        # 3. Cria os placeholders (?) para a consulta SQL.
-        # Se a lista for ['id1', 'id2', 'id3'], placeholders será "?,?,?"
-        placeholders = ','.join(['?'] * len(rpeIDText))
+        params = dict(row)
+        personID = params["id"]
+        role = params.get("role")
         
-        # 4. Cria a consulta SQL
-        # Esta é a forma segura de fazer "WHERE id IN (lista)"
-        query = f"SELECT * FROM rpe WHERE id IN ({placeholders})"
-        
-        # 5. Executa a consulta
-        # 'params' recebe a lista de IDs para preencher os '?'
-        df = pd.read_sql(query, self.__db, params=rpeIDText)
-        
-        if df.empty:
-            print(f"[AVISO] A Companhia {company.name} tem IDs de RPEs, mas eles não foram encontrados no banco.")
-            return []
+        # Hidratação: Busca IDs de responsabilidade se for Manager ou Director
+        if role == "Manager" or role == "Director":
+            cursor.execute("SELECT responsibleID FROM person_responsibles WHERE personID = ?", (personID,))
+            id_rows = cursor.fetchall()
+            params["responsibleIds"] = [r["responsibleID"] for r in id_rows]
             
-        # 6. Converte o DataFrame em uma lista de objetos RPE
-        # (Esta lógica é a mesma do seu 'getAllRPEs')
-        rpeList = []
-        for row in df.itertuples(index=False):
+        # Factory: Constrói o objeto da classe correta
+        try:
+            if role == "Manager":
+                return Manager(**params)
+            elif role == "Director":
+                return Director(**params)
+            else:
+                # Limpa o kwarg se a classe Person não o esperar
+                if "responsibleIds" in params:
+                    del params["responsibleIds"]
+                return Person(**params)
+        except TypeError as e:
+            print(f"[ERRO] Falha ao construir objeto Person/Manager. Verifique os construtores.")
+            print(f"   Erro: {e}")
+            print(f"   Parâmetros: {params}")
+            return None
+
+# --- MÉTODOS DE BUSCA "GET" ---
+
+    def getPersonByID(self, personID: str) -> Optional[Person]:
+        """
+        Retorna um objeto Person (ou Manager/Director) pelo ID, 
+        hidratando as listas de IDs a partir das tabelas de junção.
+        """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM person WHERE id = ?", (personID,))
+            row = cursor.fetchone()
             
-            # Desserializa o campo JSON
-            objectivesIds_list = json.loads(row.objectivesIds) if row.objectivesIds else []
-            
-            try:
-                # Cria o objeto RPE e o adiciona à lista
-                rpe = RPE(
-                    id=row.id,
-                    description=row.description,
-                    responsibleID=row.responsibleID,
-                    objectivesIds=objectivesIds_list
-                )
-                rpeList.append(rpe)
-            except Exception as e:
-                print(f"Erro ao recriar RPE (ID: {row.id}): {e}")
+            if not row:
+                print(f"[AVISO] Nenhuma pessoa encontrada com o ID {personID}.")
+                return None
                 
-        return rpeList
+            return self._build_person_from_row(cursor, row)
 
-    def close(self):
-        """Fecha a conexão com o banco."""
-        self.__db.close()
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar pessoa (ID: {personID}): {e}")
+            return None
+
+    def getPersonByEmail(self, email: str) -> Optional[Person]:
+        """
+        Retorna um objeto Person (ou Manager/Director) pelo Email.
+        """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM person WHERE email = ?", (email,))
+            row = cursor.fetchone()
+            
+            if not row:
+                print(f"[AVISO] Nenhuma pessoa encontrada com o Email {email}.")
+                return None
+                
+            return self._build_person_from_row(cursor, row)
+
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar pessoa (Email: {email}): {e}")
+            return None
+
+    def getCompanyByID(self, companyID: str) -> Optional[Company]:
+        """ Retorna um objeto Company pelo ID, hidratando suas listas de junção. """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM company WHERE id = ?", (companyID,))
+            row = cursor.fetchone()
+            if not row: return None
+            
+            params = dict(row)
+            
+            # Hidratação 1: 'directorsIds' (N-N)
+            cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (companyID,))
+            params["directorsIds"] = [r["personID"] for r in cursor.fetchall()]
+            
+            # Hidratação 2: 'rpeIds' (N-N)
+            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
+            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+
+            # Hidratação 3: 'departmentsIds' (1-N)
+            cursor.execute("SELECT id FROM department WHERE companyID = ?", (companyID,))
+            params["departmentsIds"] = [r["id"] for r in cursor.fetchall()]
+            
+            return Company(**params)
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar company (ID: {companyID}): {e}")
+            return None
+
+    def getDepartmentByID(self, departmentID: str) -> Optional[Department]:
+        """ Retorna um objeto Department pelo ID, hidratando suas listas de junção. """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM department WHERE id = ?", (departmentID,))
+            row = cursor.fetchone()
+            if not row: return None
+            
+            params = dict(row)
+            
+            # Hidratação 1: 'rpeIds' (N-N)
+            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
+            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+
+            # Hidratação 2: 'teamsIds' (1-N)
+            cursor.execute("SELECT id FROM team WHERE departmentID = ?", (departmentID,))
+            params["teamsIds"] = [r["id"] for r in cursor.fetchall()]
+            
+            return Department(**params)
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar department (ID: {departmentID}): {e}")
+            return None
+
+    def getTeamByID(self, teamID: str) -> Optional[Team]:
+        """ Retorna um objeto Team pelo ID, hidratando suas listas de junção. """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM team WHERE id = ?", (teamID,))
+            row = cursor.fetchone()
+            if not row: return None
+            
+            params = dict(row)
+            
+            # Hidratação 1: 'employeeIds' (N-N)
+            cursor.execute("SELECT personID FROM team_members WHERE teamID = ?", (teamID,))
+            params["employeeIds"] = [r["personID"] for r in cursor.fetchall()]
+            
+            # Hidratação 2: 'rpeIds' (N-N)
+            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
+            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+            
+            return Team(**params)
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar time (ID: {teamID}): {e}")
+            return None
+
+    def getRPEByID(self, rpeID: str) -> Optional[RPE]:
+        """ Retorna um objeto RPE pelo ID, hidratando suas listas de junção. """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM rpe WHERE id = ?", (rpeID,))
+            row = cursor.fetchone()
+            if not row: return None
+            
+            params = dict(row)
+            
+            # Hidratação 1: 'objectivesIds' (1-N)
+            cursor.execute("SELECT id FROM objective WHERE rpeID = ?", (rpeID,))
+            params["objectivesIds"] = [r["id"] for r in cursor.fetchall()]
+            
+            return RPE(**params)
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPE (ID: {rpeID}): {e}")
+            return None
+
+    def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
+        """ Retorna um objeto Objective pelo ID, hidratando suas listas de junção. """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM objective WHERE id = ?", (objectiveID,))
+            row = cursor.fetchone()
+            if not row: return None
+            
+            params = dict(row)
+            
+            # Hidratação 1: 'kpiIds' (N-N)
+            cursor.execute("SELECT kpiID FROM objective_kpis WHERE objectiveID = ?", (objectiveID,))
+            params["kpiIds"] = [r["kpiID"] for r in cursor.fetchall()]
+            
+            # NOTA: O schema anterior tinha 'krIds'. 
+            # Se você tiver uma tabela 'kr' e 'objective_krs', adicione a 
+            # hidratação para 'krIds' aqui, seguindo o mesmo padrão.
+            # ex: params["krIds"] = ...
+            
+            return Objective(**params)
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar objective (ID: {objectiveID}): {e}")
+            return None
+
+    def getKPIByID(self, kpiID: str) -> Optional[KPI]:
+        """ Retorna um objeto KPI pelo ID, desserializando o campo 'data'. """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM kpi WHERE id = ?", (kpiID,))
+            row = cursor.fetchone()
+            if not row: return None
+            
+            params = dict(row)
+            
+            # Desserialização: O campo 'data' ainda era um JSON
+            if params.get("data"):
+                try:
+                    params["data"] = json.loads(params["data"])
+                except json.JSONDecodeError:
+                    print(f"Aviso: Campo 'data' do KPI {kpiID} não é um JSON válido.")
+                    params["data"] = [] # Ou None
+            else:
+                params["data"] = [] # Ou None
+            
+            return KPI(**params)
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar KPI (ID: {kpiID}): {e}")
+            return None

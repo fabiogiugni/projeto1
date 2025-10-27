@@ -8,7 +8,7 @@ class Manager(Person):
         self.__responsibleIDs = responsibleIds
 
     def removeTeamEmployee(self, employeeID: str, db : Database):
-        db.deleteTeamMember(employeeID)
+        db.deleteTeamMember(self.teamID,employeeID)
 
     def addTeamEmployee(self, employeeID: str, db : Database):
-        db.addTeamMember(employeeID, self.teamID)
+        db.addTeamMember(self.teamID, employeeID)

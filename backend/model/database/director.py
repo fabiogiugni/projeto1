@@ -10,8 +10,13 @@ class Director(Person):
 
     def createItem(self, item, db: Database):
         db.addItem(item)
+    
+    def deleteItem(self, item, db: Database):
+        db.deleteItem()
 
     def getDepartment(self, db: Database):
         return db.getDepartmentByID(self.departmentID)
+    
+
     
 
