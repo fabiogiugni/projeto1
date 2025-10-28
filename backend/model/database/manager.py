@@ -13,20 +13,35 @@ class Manager(Person):
     def addTeamEmployee(self, employeeID: str, db : Database):
         db.addTeamMember(self.teamID, employeeID)
 
-    def createObjective(obj: Objective, rpeID: str, db: Database):
-        db.addItem(obj)
-        db.addObjectiveToRpe(obj.id,rpeID)
+    def createObjective(self, obj: Objective, rpeID: str, db: Database):
+        if db.isRPETeamOrDepartmentLevel(rpeID):
+            db.addItem(obj)
+            db.addObjectiveToRpe(obj.id,rpeID)
+        else:
+            print("Erro ao adicionar objetivo: nível de acesso inválido.")
     
-    def createKPI(kpi: KPI, objectiveID: str, db: Database):
-        db.addItem(kpi)
-        db.addKpiToObjective(kpi.id,objectiveID)
+    def createKPI(self, kpi: KPI, objectiveID: str, db: Database):
+        if db.isObjectiveTeamOrDepartmentLevel(kpi.id):
+            db.addItem(kpi)
+            db.addKpiToObjective(kpi.id,objectiveID)
+        else:
+            print("Erro ao adicionar KPI: nível de acesso inválido.")
 
-    def createKR(kr: KR, objectiveID: str, db: Database):
-        db.addItem(kr)
-        db.addKpiToObjective(kr.id,objectiveID)
+    def createKR(self, kr: KR, objectiveID: str, db: Database):
+        if db.isObjectiveTeamOrDepartmentLevel(kr.id):
+            db.addItem(kr)
+            db.addKpiToObjective(kr.id,objectiveID)
+        else:
+            print("Erro ao adicionar KR: nível de acesso inválido.")
     
-    def deleteData(data: Data,db : Database):
-        db.deleteItem(data)
+    def deleteData(self, data: Data,db : Database):
+        if(data.responsibleID == self.id):
+            db.deleteItem(data)
+        else:
+            print("Erro ao deletar dado: nível de acesso inválido.")
 
-    def collectIndicator(kpi: KPI, db : Database):
-        db.updateItem(kpi)
+    def collectIndicator(self, kpi: KPI, db : Database):
+        if(kpi.responsibleID == self.id):
+            db.updateItem(kpi)
+        else:
+            print("Erro ao coletar dado: nível de acesso inválido.")  

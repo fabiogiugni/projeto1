@@ -76,7 +76,6 @@ class Database:
                 description TEXT,
                 responsibleID TEXT,
                 date TEXT,
-                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE,
                 FOREIGN KEY(responsibleID) REFERENCES person(id) ON DELETE SET NULL
             );
 
@@ -744,8 +743,9 @@ class Database:
             return None
 
     def getRPEByID(self, rpeID: str) -> Optional[RPE]:
-        """ Retorna um objeto RPE pelo ID, hidratando suas listas de junção. """
+        """ Retorna um objeto RPE pelo ID, hidratando 'objectivesIds' pela tabela de junção. """
         try:
+            # (Assumindo que self.__db.row_factory = sqlite3.Row foi definido no __init__)
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM rpe WHERE id = ?", (rpeID,))
             row = cursor.fetchone()
@@ -753,9 +753,12 @@ class Database:
             
             params = dict(row)
             
-            # Hidratação 1: 'objectivesIds' (1-N)
-            cursor.execute("SELECT id FROM objective WHERE rpeID = ?", (rpeID,))
-            params["objectivesIds"] = [r["id"] for r in cursor.fetchall()]
+            # Hidratação CORRETA: 'objectivesIds' (N-para-N)
+            # Busca na tabela de junção 'rpe_objectives'
+            cursor.execute("SELECT objectiveID FROM rpe_objectives WHERE rpeID = ?", (rpeID,))
+            
+            # O construtor do RPE espera 'objectivesIds'
+            params["objectivesIds"] = [r["objectiveID"] for r in cursor.fetchall()]
             
             return RPE(**params)
             
@@ -764,7 +767,7 @@ class Database:
             return None
 
     def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
-        """ Retorna um objeto Objective pelo ID, hidratando suas listas de junção. """
+        """ Retorna um objeto Objective pelo ID, hidratando e separando 'kpiIds' e 'krIds'. """
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM objective WHERE id = ?", (objectiveID,))
@@ -774,13 +777,24 @@ class Database:
             params = dict(row)
             
             # Hidratação 1: 'kpiIds' (N-N)
-            cursor.execute("SELECT kpiID FROM objective_kpis WHERE objectiveID = ?", (objectiveID,))
+            # Busca IDs que estão na junção E têm 'goal' NULO na tabela 'kpi'
+            query_kpis = """
+                SELECT OK.kpiID FROM objective_kpis AS OK
+                JOIN kpi AS K ON OK.kpiID = K.id
+                WHERE OK.objectiveID = ? AND K.goal IS NULL
+            """
+            cursor.execute(query_kpis, (objectiveID,))
             params["kpiIds"] = [r["kpiID"] for r in cursor.fetchall()]
-            
-            # NOTA: O schema anterior tinha 'krIds'. 
-            # Se você tiver uma tabela 'kr' e 'objective_krs', adicione a 
-            # hidratação para 'krIds' aqui, seguindo o mesmo padrão.
-            # ex: params["krIds"] = ...
+
+            # Hidratação 2: 'krIds' (N-N)
+            # Busca IDs que estão na junção E têm 'goal' NÃO NULO na tabela 'kpi'
+            query_krs = """
+                SELECT OK.kpiID FROM objective_kpis AS OK
+                JOIN kpi AS K ON OK.kpiID = K.id
+                WHERE OK.objectiveID = ? AND K.goal IS NOT NULL
+            """
+            cursor.execute(query_krs, (objectiveID,))
+            params["krIds"] = [r["kpiID"] for r in cursor.fetchall()]
             
             return Objective(**params)
             
@@ -789,58 +803,75 @@ class Database:
             return None
 
     def getKPIByID(self, kpiID: str) -> Optional[KPI]:
-        """ Retorna um objeto KPI pelo ID, desserializando o campo 'data'. """
+        """ 
+        Retorna um objeto KPI pelo ID. 
+        Assume que um KPI tem 'data', mas não tem 'goal'.
+        """
         try:
             cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM kpi WHERE id = ?", (kpiID,))
+            # Busca um item que DEVE ser um KPI (goal IS NULL)
+            cursor.execute("SELECT * FROM kpi WHERE id = ? AND goal IS NULL", (kpiID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                print(f"[Aviso] Nenhum KPI (com goal=NULL) encontrado com ID {kpiID}.")
+                return None
             
             params = dict(row)
             
-            # Desserialização: O campo 'data' ainda era um JSON
+            # Desserialização: O campo 'data' (que o KPI TEM)
             if params.get("data"):
                 try:
                     params["data"] = json.loads(params["data"])
                 except json.JSONDecodeError:
-                    print(f"Aviso: Campo 'data' do KPI {kpiID} não é um JSON válido.")
-                    params["data"] = [] # Ou None
+                    params["data"] = [] # Padrão
             else:
-                params["data"] = [] # Ou None
-                
-            if "data" in params:
-                del params["data"]
-
+                params["data"] = [] # Padrão
+            
+            # Limpeza: O KPI NÃO TEM 'goal'. Removemos antes de chamar o construtor.
+            if "goal" in params:
+                del params["goal"]
+            
+            # O construtor KPI(**params) agora recebe 'data', mas não 'goal'.
             return KPI(**params)
             
         except sqlite3.Error as e:
             print(f"Erro ao buscar KPI (ID: {kpiID}): {e}")
             return None
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar KPI (ID: {kpiID}): {e}")
+            return None
         
-    def getKRByID(self, krID: str) -> Optional[KPI]:
-        """ Retorna um objeto KR pelo ID, desserializando o campo 'data'. """
+    def getKRByID(self, krID: str) -> Optional[KR]: # Alterei o tipo de retorno para KR
+        """ 
+        Retorna um objeto KR pelo ID. 
+        Assume que um KR tem 'data' e 'goal'.
+        """
         try:
             cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM kpi WHERE id = ?", (krID,))
+            # Busca um item que DEVE ser um KR (goal IS NOT NULL)
+            cursor.execute("SELECT * FROM kpi WHERE id = ? AND goal IS NOT NULL", (krID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                print(f"[Aviso] Nenhum KR (com goal!=NULL) encontrado com ID {krID}.")
+                return None
             
             params = dict(row)
             
-            # Desserialização: O campo 'data' ainda era um JSON
+            # Desserialização: O campo 'data' (que o KR TEM)
             if params.get("data"):
                 try:
                     params["data"] = json.loads(params["data"])
                 except json.JSONDecodeError:
-                    print(f"Aviso: Campo 'data' do KPI {krID} não é um JSON válido.")
-                    params["data"] = [] # Ou None
+                    params["data"] = []
             else:
-                params["data"] = [] # Ou None
+                params["data"] = []
             
+            # O construtor KR(**params) recebe 'data' E 'goal'.
             return KR(**params)
             
         except sqlite3.Error as e:
-            print(f"Erro ao buscar KPI (ID: {krID}): {e}")
+            print(f"Erro ao buscar KR (ID: {krID}): {e}")
             return None
         
     def changeTeamManager(self, teamID: str, personID: str):
@@ -902,3 +933,82 @@ class Database:
         except sqlite3.Error as e:
             print(f"[ERRO] Falha ao mudar Diretor do Departamento (ID: {departmentID}): {e}")
             return 1 # Código de falha
+        
+    def isObjectiveTeamOrDepartmentLevel(self, objectiveID: str) -> bool:
+        """
+        Verifica se um Objetivo está associado a pelo menos um Team OU a pelo menos um Department.
+        
+        Isso é feito verificando o caminho Objective -> RPE -> (Team OR Department).
+        Retorna True se houver associação com Team ou Department, False caso contrário.
+        """
+        try:
+            cursor = self.__db.cursor()
+            
+            # Consulta SQL Otimizada: 
+            # Verifica se EXISTE algum RPE que está ligado ao objectiveID E
+            # que também está ligado a um team OU a um department.
+            
+            query = """
+                SELECT 1 FROM rpe_objectives AS RO
+                WHERE RO.objectiveID = ?
+                  AND (
+                    -- Verifica se o RPE está ligado a um TEAM
+                    EXISTS (
+                        SELECT 1 FROM team_rpes AS TR 
+                        WHERE TR.rpeID = RO.rpeID
+                    )
+                    OR
+                    -- Verifica se o RPE está ligado a um DEPARTMENT
+                    EXISTS (
+                        SELECT 1 FROM department_rpes AS DR 
+                        WHERE DR.rpeID = RO.rpeID
+                    )
+                  )
+                LIMIT 1;
+            """
+            
+            cursor.execute(query, (objectiveID,))
+            
+            # Se fetchone() retornar uma linha, significa que existe pelo menos uma associação.
+            return cursor.fetchone() is not None
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao verificar nível do Objetivo {objectiveID}: {e}")
+            # Em caso de erro, assumimos que a verificação falhou.
+            return False
+    
+    def isRPETeamOrDepartmentLevel(self, rpeID: str) -> bool:
+        """
+        Verifica se um RPE está associado a pelo menos um Team OU a pelo menos um Department,
+        consultando diretamente as tabelas de junção 'team_rpes' e 'department_rpes'.
+        
+        Retorna True se houver associação com Team ou Department, False caso contrário.
+        """
+        try:
+            cursor = self.__db.cursor()
+            
+            # Consulta SQL Otimizada:
+            # Verifica se o rpeID existe em team_rpes OU em department_rpes.
+            query = """
+                SELECT 1 FROM team_rpes AS TR 
+                WHERE TR.rpeID = ?
+                
+                UNION ALL
+                
+                SELECT 1 FROM department_rpes AS DR 
+                WHERE DR.rpeID = ?
+                
+                LIMIT 1;
+            """
+            
+            # Passamos o rpeID duas vezes para a consulta (uma para cada WHERE)
+            cursor.execute(query, (rpeID, rpeID))
+            
+            # Se fetchone() retornar uma linha, significa que o RPE está associado a pelo
+            # menos um Team OU a um Department.
+            return cursor.fetchone() is not None
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao verificar nível do RPE {rpeID}: {e}")
+            # Em caso de erro, assume que a verificação falhou.
+            return False
