@@ -1,4 +1,5 @@
 import sqlite3
+import json
 from typing import Optional
 
 from entity import Entity
@@ -73,7 +74,6 @@ class Database:
             CREATE TABLE IF NOT EXISTS objective (
                 id TEXT PRIMARY KEY,
                 description TEXT,
-                rpeID TEXT,
                 responsibleID TEXT,
                 date TEXT,
                 FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE,
@@ -139,6 +139,14 @@ class Database:
                 FOREIGN KEY(teamID) REFERENCES team(id) ON DELETE CASCADE,
                 FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE
             );
+            
+            CREATE TABLE IF NOT EXISTS rpe_objectives (
+                rpeID TEXT NOT NULL,
+                objectiveID TEXT NOT NULL,
+                PRIMARY KEY (rpeID, objectiveID),
+                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE,
+                FOREIGN KEY(objectiveID) REFERENCES objective(id) ON DELETE CASCADE
+            );
 
             CREATE TABLE IF NOT EXISTS objective_kpis (
                 objectiveID TEXT NOT NULL,
@@ -202,6 +210,150 @@ class Database:
         except sqlite3.Error as e:
             print(f"Erro ao deletar item de '{tableName}' (ROLLBACK executado): {e}")
             return None
+    
+    def deleteItem(self, id: str) -> bool:
+        """
+        Tenta deletar um item (entidade) do banco de dados usando seu ID.
+        
+        A deleção se baseia nas regras de integridade referencial (FOREIGN KEY ON DELETE CASCADE)
+        para limpar as tabelas de junção e as entidades dependentes.
+        
+        Retorna True se pelo menos um item for deletado, False caso contrário.
+        """
+        
+        # Lista de todas as tabelas que usam 'id' como PRIMARY KEY.
+        # As tabelas de junção NÃO são incluídas, pois a exclusão é tratada
+        # pelo ON DELETE CASCADE das tabelas principais.
+        tables_to_check = [
+            "company", "department", "team", 
+            "person", "rpe", "objective", "kpi"
+        ]
+        
+        total_deleted_rows = 0
+        
+        try:
+            with self.__db: # Garante a atomicidade (commit/rollback)
+                
+                for table in tables_to_check:
+                    query = f"DELETE FROM {table} WHERE id = ?"
+                    cursor = self.__db.execute(query, (id,))
+                    
+                    if cursor.rowcount > 0:
+                        # Se rowcount > 0, o item foi encontrado e deletado nessa tabela.
+                        # O CASCADE do SQLite cuidará das tabelas dependentes (junção e outras).
+                        print(f"Registro (ID: {id}) deletado com sucesso da tabela '{table}'.")
+                        total_deleted_rows += cursor.rowcount
+                        break # O ID só pode pertencer a uma tabela principal, então paramos.
+                        
+            if total_deleted_rows > 0:
+                return True
+            else:
+                print(f"[AVISO] Nenhum item encontrado com o ID: {id} em nenhuma tabela principal.")
+                return False
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao deletar item com ID {id}: {e}")
+            # Em caso de erro, o 'with self.__db:' já faz o rollback
+            return False
+    
+    def addItem(self, item: Entity) -> Optional[int]:
+        """
+        Adiciona um novo item no banco de dados.
+        NOTA: Este método só insere a entidade principal. 
+        As relações (listas de IDs) devem ser adicionadas separadamente 
+        após a inserção principal (e.g., usando métodos 'add...').
+        """
+        
+        query = ""
+        params = ()
+        entity_name = type(item).__name__
+
+        # Usa o 'with self.__db:' para garantir que o commit ou rollback ocorra
+        try:
+            with self.__db: 
+                # --- Bloco Person ---
+                if isinstance(item, Person):
+                    
+                    # Verificação de unicidade (opcional, mas recomendado)
+                    if self.getPersonByID(item.id):
+                        print(f"[ERRO] Pessoa com ID {item.id} já existe.")
+                        return 1
+
+                    query = """INSERT INTO person (
+                               id, name, cpf, companyID, departmentID, role, email, password
+                               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+                    params = (item.id, item.name, item.cpf, 
+                              item.companyID, item.departmentID, 
+                              item.role, item.email, item.password)
+
+                # --- Bloco Company ---
+                elif isinstance(item, Company):
+                    query = """INSERT INTO company (
+                               id, name, cnpj
+                               ) VALUES (?, ?, ?)"""
+                    params = (item.id, item.name, item.cnpj)
+
+                # --- Bloco Department ---
+                elif isinstance(item, Department):
+                    query = """INSERT INTO department (
+                               id, name, companyID, directorID
+                               ) VALUES (?, ?, ?, ?)"""
+                    params = (item.id, item.name, item.companyID, item.directorID)
+
+                # --- Bloco Team ---
+                elif isinstance(item, Team):
+                    query = """INSERT INTO team (
+                               id, name, departmentID, managerID
+                               ) VALUES (?, ?, ?, ?)"""
+                    params = (item.id, item.name, item.departmentID, item.managerID)
+
+                # --- Bloco RPE ---
+                elif isinstance(item, RPE):
+                    query = """INSERT INTO rpe (
+                               id, description, responsibleID, date
+                               ) VALUES (?, ?, ?, ?)"""
+                    params = (item.id, item.description, item.responsibleID, item.date)
+
+                # --- Bloco Objective ---
+                elif isinstance(item, Objective):
+                    query = """INSERT INTO objective (
+                               id, description, responsibleID, date
+                               ) VALUES (?, ?, ?, ?)"""
+                    params = (item.id, item.description, item.responsibleID, item.date)
+
+                # --- Bloco KPI (usado para KPI e KR, com 'goal' e 'data' opcionais) ---
+                elif isinstance(item, KPI):
+                    # O campo 'data' (vetor de floats) ainda precisa ser serializado
+                    dataText = json.dumps(getattr(item, 'data', [])) 
+                    # O campo 'goal' e 'current_value' são tratados. 
+                    # Se não existirem no objeto KPI, use NULL (None em Python) ou 0.0
+                    goal = getattr(item, 'goal', None)
+                    
+                    query = """INSERT INTO kpi (
+                               id, description, responsibleID, date, data, goal,
+                               ) VALUES (?, ?, ?, ?, ?, ?)"""
+                    params = (item.id, item.description, item.responsibleID, item.date, 
+                              dataText, goal)
+
+                else:
+                    print(f"[ERRO] Tipo de item desconhecido para inserção: {entity_name}")
+                    return 1
+
+                # Executa a inserção
+                self.__db.execute(query, params)
+                
+                print(f"{entity_name} {item.id} inserido com sucesso.")
+
+            # Retorno de sucesso
+            return 0 
+
+        except sqlite3.IntegrityError as e:
+            # Captura erros de UNIQUE (como CNPJ ou CPF duplicado)
+            print(f"[ERRO] Falha de Integridade ao adicionar {entity_name} (ID: {item.id}): {e}")
+            return 1
+        except sqlite3.Error as e:
+            print(f"[ERRO] Erro SQL ao adicionar {entity_name} (ID: {item.id}): {e}")
+            return 1
 
     # --- MÉTODOS DE RELAÇÃO UM-PARA-MUITOS (Assign/Unassign) ---
     
@@ -249,10 +401,7 @@ class Database:
     def assignResponsibleToRPE(self, responsible_id: str, rpe_id: str):
         return self._assign_foreign_key("rpe", "responsibleID", responsible_id, rpe_id)
 
-    # Relações de Objective
-    def assignObjectiveToRPE(self, objective_id: str, rpe_id: str):
-        return self._assign_foreign_key("objective", "rpeID", rpe_id, objective_id)
-        
+    #Relações de Objective
     def assignResponsibleToObjective(self, responsible_id: str, objective_id: str):
         return self._assign_foreign_key("objective", "responsibleID", responsible_id, objective_id)
 
@@ -335,6 +484,10 @@ class Database:
     def deleteRpeFromTeam(self, team_id: str, rpe_id: str) -> bool:
         return self._delete_junction("team_rpes", "teamID", team_id, "rpeID", rpe_id)
 
+    # rpe_objectives (RPE <-> Objective)
+    def addObjectiveToRpe(self, objective_id: str, rpe_id: str):
+        return self._add_junction("rpe_objectives","rpeID",rpe_id, "objectiveID",objective_id)
+
     # objective_kpis (Objective <-> KPI)
     def addKpiToObjective(self, objective_id: str, kpi_id: str) -> bool:
         return self._add_junction("objective_kpis", "objectiveID", objective_id, "kpiID", kpi_id)
@@ -399,14 +552,22 @@ class Database:
                            WHERE id = ?"""
                 params = (item.description, item.rpeID, item.responsibleID, item.date, item.id)
 
-            # --- Bloco KPI ---
-            elif isinstance(item, KPI):
-                # O campo 'data' ainda pode ser um JSON, se for um vetor
+            # --- Bloco KR ---
+            elif isinstance(item, KR):
                 dataText = json.dumps(item.data) 
                 query = """UPDATE kpi
                            SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
                            WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, dataText, item.goal,
+                          item.id)
+
+            # --- Bloco KPI ---
+            elif isinstance(item, KPI):
+                dataText = json.dumps(item.data) 
+                query = """UPDATE kpi
+                           SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                           WHERE id = ?"""
+                params = (item.description, item.responsibleID, item.date, dataText, None,
                           item.id)
             
             # --- Bloco Else ---
@@ -428,7 +589,7 @@ class Database:
             print(f"Erro ao atualizar {type(item).__name__} (ID: {item.id}): {e}")
             return 1 # Falha
         
-        # --- NOVO MÉTODO AUXILIAR PARA PESSOAS ---
+ # --- NOVO MÉTODO AUXILIAR PARA PESSOAS ---
     
     def _build_person_from_row(self, cursor: sqlite3.Cursor, row: sqlite3.Row) -> Optional[Person]:
         """
@@ -646,11 +807,40 @@ class Database:
                     params["data"] = [] # Ou None
             else:
                 params["data"] = [] # Ou None
-            
+                
+            if "data" in params:
+                del params["data"]
+
             return KPI(**params)
             
         except sqlite3.Error as e:
             print(f"Erro ao buscar KPI (ID: {kpiID}): {e}")
+            return None
+        
+    def getKRByID(self, krID: str) -> Optional[KPI]:
+        """ Retorna um objeto KR pelo ID, desserializando o campo 'data'. """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM kpi WHERE id = ?", (krID,))
+            row = cursor.fetchone()
+            if not row: return None
+            
+            params = dict(row)
+            
+            # Desserialização: O campo 'data' ainda era um JSON
+            if params.get("data"):
+                try:
+                    params["data"] = json.loads(params["data"])
+                except json.JSONDecodeError:
+                    print(f"Aviso: Campo 'data' do KPI {krID} não é um JSON válido.")
+                    params["data"] = [] # Ou None
+            else:
+                params["data"] = [] # Ou None
+            
+            return KR(**params)
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar KPI (ID: {krID}): {e}")
             return None
         
     def changeTeamManager(self, teamID: str, personID: str):
@@ -682,7 +872,6 @@ class Database:
         except sqlite3.Error as e:
             print(f"[ERRO] Falha ao mudar Gerente do Time (ID: {teamID}): {e}")
             return 1 # Código de falha
-
 
     def changeDepartmentDirector(self, departmentID: str, personID: str):
         """
