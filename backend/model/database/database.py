@@ -2,18 +2,17 @@ import sqlite3
 import json
 from typing import Optional
 
-from entity import Entity
-from person import Person
-from employee import Employee
-from manager import Manager
-from director import Director
-from company import Company
-from department import Department
-from team import Team
-from rpe import RPE
-from objective import Objective
-from kpi import KPI
-from kr import KR
+from ..entities.entity import Entity
+from ..entities.person import Person
+from ..entities.company import Company
+from ..entities.manager import Manager
+from ..entities.director import Director
+from ..entities.department import Department
+from ..entities.team import Team
+from ..entities.rpe import RPE
+from ..entities.objective import Objective
+from ..entities.kpi import KPI
+from ..entities.kr import KR
 
 
 class Database:
