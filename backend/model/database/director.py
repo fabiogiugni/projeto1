@@ -8,15 +8,17 @@ class Director(Person):
         super().__init__(**kwargs)
         self.__responsibleIDs = responsibleIds
 
-    def createItem(self, item, db: Database):
+    def createItem(self, item, db: Database): #User, team, department...
         db.addItem(item)
     
-    def deleteItem(self, item, db: Database):
+    def deleteItem(self, item, db: Database): #User, team, department...
         db.deleteItem()
 
     def getDepartment(self, db: Database):
         return db.getDepartmentByID(self.departmentID)
     
-
+    def changeTeamManager(self, teamID : str, personID: str, db : Database):
+        db.changeTeamManager(teamID, personID)
     
-
+    def changeDepartmentDirector(self, departmentID : str, personID: str, db : Database):
+        db.changeTeamManager(departmentID, personID)

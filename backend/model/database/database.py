@@ -652,3 +652,64 @@ class Database:
         except sqlite3.Error as e:
             print(f"Erro ao buscar KPI (ID: {kpiID}): {e}")
             return None
+        
+    def changeTeamManager(self, teamID: str, personID: str):
+        """
+        Muda o managerID de um time (team) para um novo personID.
+        Se personID for None, o campo managerID será NULL.
+        """
+        if personID is None or personID == "":
+            personID_to_set = None  # SQLite aceita None para NULL
+        else:
+            personID_to_set = personID
+
+        try:
+            with self.__db: # Inicia uma transação
+                cursor = self.__db.execute(
+                    """UPDATE team 
+                       SET managerID = ? 
+                       WHERE id = ?""", 
+                    (personID_to_set, teamID)
+                )
+                
+                if cursor.rowcount == 0:
+                    print(f"[AVISO] Nenhum time encontrado com o ID {teamID}. Gerente não alterado.")
+                    return 1 # Código de falha
+                    
+            print(f"Gerente do Time (ID: {teamID}) alterado para PersonID: {personID_to_set}.")
+            return 0 # Código de sucesso
+            
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao mudar Gerente do Time (ID: {teamID}): {e}")
+            return 1 # Código de falha
+
+
+    def changeDepartmentDirector(self, departmentID: str, personID: str):
+        """
+        Muda o directorID de um departamento para um novo personID.
+        Se personID for None, o campo directorID será NULL.
+        """
+        if personID is None or personID == "":
+            personID_to_set = None
+        else:
+            personID_to_set = personID
+
+        try:
+            with self.__db: # Inicia uma transação
+                cursor = self.__db.execute(
+                    """UPDATE department 
+                       SET directorID = ? 
+                       WHERE id = ?""", 
+                    (personID_to_set, departmentID)
+                )
+                
+                if cursor.rowcount == 0:
+                    print(f"[AVISO] Nenhum departamento encontrado com o ID {departmentID}. Diretor não alterado.")
+                    return 1 # Código de falha
+                    
+            print(f"Diretor do Departamento (ID: {departmentID}) alterado para PersonID: {personID_to_set}.")
+            return 0 # Código de sucesso
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao mudar Diretor do Departamento (ID: {departmentID}): {e}")
+            return 1 # Código de falha
