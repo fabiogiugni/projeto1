@@ -2,10 +2,10 @@ from entity import Entity
 
 class Group(Entity):
 
-    def __init__(self, name: str, id: str = None, RPEIds: list[str] = None):
+    def __init__(self, name: str, id: str = None, RPEIDs: list[str] = None):
         super().__init__(id)
         self._name = name
-        self._RPEIDs = RPEIds if RPEIds is not None else []
+        self._RPEIDs = RPEIDs if RPEIDs is not None else []
 
     def addRPE(self, RPEID : str):
         self._RPEIDs.append(RPEID)
