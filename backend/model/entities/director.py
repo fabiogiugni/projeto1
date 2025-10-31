@@ -7,12 +7,13 @@ class Director(Person):
     def __init__(self, responsibleIds: list[str], **kwargs):
         super().__init__(**kwargs)
         self.__responsibleIDs = responsibleIds
+        self._role = "Director"
 
     def createItem(self, item, db: Database): #User, team, department...
         db.addItem(item)
     
     def deleteItem(self, item, db: Database): #User, team, department...
-        db.deleteItem(item)
+        db.deleteItemByObject(item)
 
     def getDepartment(self, db: Database):
         return db.getDepartmentByID(self.departmentID)
@@ -21,22 +22,22 @@ class Director(Person):
         db.changeTeamManager(teamID, personID)
     
     def changeDepartmentDirector(self, departmentID : str, personID: str, db : Database):
-        db.changeTeamManager(departmentID, personID)
+        db.changeDepartmentDirector(departmentID, personID)
     
-    def createObjective(obj: Objective, rpeID: str, db: Database):
+    def createObjective(self, obj: Objective, rpeID: str, db: Database):
         db.addItem(obj)
         db.addObjectiveToRpe(obj.id,rpeID)
     
-    def createKPI(kpi: KPI, objectiveID: str, db: Database):
+    def createKPI(self, kpi: KPI, objectiveID: str, db: Database):
         db.addItem(kpi)
-        db.addKpiToObjective(kpi.id,objectiveID)
+        db.addKpiToObjective(objectiveID,kpi.id)
 
-    def createKR(kr: KR, objectiveID: str, db: Database):
+    def createKR(self, kr: KR, objectiveID: str, db: Database):
         db.addItem(kr)
-        db.addKpiToObjective(kr.id,objectiveID)
+        db.addKpiToObjective(objectiveID,kr.id)
     
-    def deleteData(data: Data,db : Database):
-        db.deleteItem(data)
+    def deleteData(self, data: Data,db : Database):
+        db.deleteItemByObject(data)
 
-    def collectIndicator(kpi: KPI, db : Database):
+    def collectIndicator(self, kpi: KPI, db : Database):
         db.updateItem(kpi)

@@ -2,12 +2,9 @@ import uuid
 
 class Entity:
 
-    def __init__(self):
-        self.__id = uuid.uuid4()
-
-    def __init__(self, id):
-        self.__id = id
+    def __init__(self, id=None):
+        self._id = str(id) if id is not None else uuid.uuid4()
 
     @property
     def id(self):
-        return self.__id
+        return self._id

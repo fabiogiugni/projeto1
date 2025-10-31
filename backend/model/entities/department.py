@@ -1,16 +1,17 @@
 from group import Group
 
 class Department(Group):
-    def __init__(self, id : str, name : str):
-        super().__init__(id, name)
-        self.__teamIDs = []
-        self.__directorID = None
+    def __init__(self, name: str, directorID: str, companyID:str, id: str = None, RPEIDs: list[str] = None, teamIDs: list[str] = None):
+        super().__init__(name, id, RPEIDs)
+        self.__teamIDs = teamIDs if RPEIDs is not None else []
+        self.__directorID = directorID
+        self.__companyID = companyID
 
     def addTeam(self, teamID : str):
         self.__teamIDs.append(teamID)
     
     def removeTeam(self, teamID : str):
-        self.__departmentIDs.remove(teamID)
+        self.__teamIDs.remove(teamID)
 
     @property
     def teamIDs(self):
@@ -19,7 +20,11 @@ class Department(Group):
     @property
     def directorID(self):
         return self.__directorID
+    
+    @property
+    def companyID(self):
+        return self.__companyID
 
     @directorID.setter
-    def directorID(self, directorId : str):
-        self.__directorID = directorId
+    def directorID(self, directorID : str):
+        self.__directorID = directorID

@@ -55,11 +55,13 @@ class Database:
                 cpf TEXT UNIQUE,
                 companyID TEXT,
                 departmentID TEXT,
+                teamID TEXT,
                 role TEXT,
                 email TEXT,
                 password TEXT,
                 FOREIGN KEY(companyID) REFERENCES company(id) ON DELETE SET NULL,
                 FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE SET NULL
+                FOREIGN KEY(teamID) REFERENCES team(id) ON DELETE SET NULL
             );
 
             CREATE TABLE IF NOT EXISTS rpe (
@@ -168,7 +170,7 @@ class Database:
             print("LOG: Conexão com o banco de dados fechada.")
 
     
-    def deleteItem(self, item: Entity) -> Optional[int]:
+    def deleteItemByObject(self, item: Entity) -> Optional[int]:
         """
         Remove um item do banco de dados.
         O banco de dados cuidará automaticamente da limpeza de referências
@@ -209,7 +211,7 @@ class Database:
             print(f"Erro ao deletar item de '{tableName}' (ROLLBACK executado): {e}")
             return None
     
-    def deleteItem(self, id: str) -> bool:
+    def deleteItembyID(self, id: str) -> bool:
         """
         Tenta deletar um item (entidade) do banco de dados usando seu ID.
         
@@ -278,10 +280,10 @@ class Database:
                         return 1
 
                     query = """INSERT INTO person (
-                               id, name, cpf, companyID, departmentID, role, email, password
-                               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+                               id, name, cpf, companyID, departmentID, teamID, role, email, password
+                               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
                     params = (item.id, item.name, item.cpf, 
-                              item.companyID, item.departmentID, 
+                              item.companyID, item.departmentID, item.teamID,
                               item.role, item.email, item.password)
 
                 # --- Bloco Company ---
@@ -328,7 +330,7 @@ class Database:
                     goal = getattr(item, 'goal', None)
                     
                     query = """INSERT INTO kpi (
-                               id, description, responsibleID, date, data, goal,
+                               id, description, responsibleID, date, data, goal
                                ) VALUES (?, ?, ?, ?, ?, ?)"""
                     params = (item.id, item.description, item.responsibleID, item.date, 
                               dataText, goal)
@@ -389,6 +391,12 @@ class Database:
         return self._assign_foreign_key("team", "managerID", manager_id, team_id)
 
     # Relações de Person
+    def assignPersonToTeam(self, person_id: str, team_id: str):
+        return self._assign_foreign_key("person", "teamID", team_id, person_id)
+    
+    def unassignPersonToTeam(self, person_id: str) -> bool:
+        return self._unassign_foreign_key("person", "teamID", person_id)
+
     def assignPersonToCompany(self, person_id: str, company_id: str):
         return self._assign_foreign_key("person", "companyID", company_id, person_id)
 
@@ -485,6 +493,9 @@ class Database:
     # rpe_objectives (RPE <-> Objective)
     def addObjectiveToRpe(self, objective_id: str, rpe_id: str):
         return self._add_junction("rpe_objectives","rpeID",rpe_id, "objectiveID",objective_id)
+    
+    def deleteObjectiveFromRpe(self, objective_id: str, rpe_id: str) -> bool:
+        return self._delete_junction("rpe_objectives", "rpeID", rpe_id, "objectiveID", objective_id)
 
     # objective_kpis (Objective <-> KPI)
     def addKpiToObjective(self, objective_id: str, kpi_id: str) -> bool:
@@ -508,10 +519,10 @@ class Database:
             # --- Bloco Person ---
             if isinstance(item, Person):
                 query = """UPDATE person 
-                           SET name = ?, cpf = ?, companyID = ?, departmentID = ?, 
+                           SET name = ?, cpf = ?, companyID = ?, departmentID = ?, teamID = ?,
                                role = ?, email = ?, password = ?
                            WHERE id = ?"""
-                params = (item.name, item.cpf, item.companyID, item.departmentID,
+                params = (item.name, item.cpf, item.companyID, item.departmentID, item.teamID,
                           item.role, item.email, item.password, 
                           item.id) # ID por último
 
@@ -546,9 +557,9 @@ class Database:
             # --- Bloco Objective ---
             elif isinstance(item, Objective):
                 query = """UPDATE objective
-                           SET description = ?, rpeID = ?, responsibleID = ?, date = ?
+                           SET description = ?, responsibleID = ?, date = ?
                            WHERE id = ?"""
-                params = (item.description, item.rpeID, item.responsibleID, item.date, item.id)
+                params = (item.description, item.responsibleID, item.date, item.id)
 
             # --- Bloco KR ---
             elif isinstance(item, KR):
@@ -1011,3 +1022,60 @@ class Database:
             print(f"[ERRO] Falha ao verificar nível do RPE {rpeID}: {e}")
             # Em caso de erro, assume que a verificação falhou.
             return False
+        
+    def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
+        """
+        Retorna uma lista de objetos RPE associados a um teamID.
+        """
+        if not teamID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            # 1. Busca todos os IDs de RPE da tabela de junção
+            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            # 2. Reutiliza o getRPEByID para construir cada RPE de forma segura (com hidratação)
+            #    Isso é um "list comprehension" que faz um loop e filtra Nones
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
+            return []
+
+    def getRPEsByDepartmentID(self, departmentID: str) -> list[RPE]:
+        """
+        Retorna uma lista de objetos RPE associados a um departmentID.
+        """
+        if not departmentID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por DepartmentID {departmentID}: {e}")
+            return []
+
+    def getRPEsByCompanyID(self, companyID: str) -> list[RPE]:
+        """
+        Retorna uma lista de objetos RPE associados a um companyID.
+        """
+        if not companyID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por CompanyID {companyID}: {e}")
+            return []
