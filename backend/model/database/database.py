@@ -60,7 +60,7 @@ class Database:
                 email TEXT,
                 password TEXT,
                 FOREIGN KEY(companyID) REFERENCES company(id) ON DELETE SET NULL,
-                FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE SET NULL
+                FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE SET NULL,
                 FOREIGN KEY(teamID) REFERENCES team(id) ON DELETE SET NULL
             );
 
@@ -702,6 +702,48 @@ class Database:
             
         except sqlite3.Error as e:
             print(f"Erro ao buscar company (ID: {companyID}): {e}")
+            return None
+    
+    def getCompanyByCnpj(self, cnpj: str) -> Optional[Company]:
+        """ Retorna um objeto Company pelo cnpj, hidratando suas listas de junção. """
+        try:
+            cursor = self.__db.cursor()
+            
+            # 1. CORREÇÃO: Buscar pela coluna 'cnpj'
+            cursor.execute("SELECT * FROM company WHERE cnpj = ?", (cnpj,))
+            row = cursor.fetchone()
+            
+            if not row: 
+                print(f"[AVISO] Nenhuma empresa encontrada com o CNPJ {cnpj}.")
+                return None
+            
+            params = dict(row)
+            
+            # 2. CORREÇÃO: Extrair o ID da empresa que acabamos de encontrar
+            company_id = params["id"] 
+            
+            # --- Hidratação usando o company_id ---
+            
+            # 3. CORREÇÃO: Usar a variável company_id
+            cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (company_id,))
+            # 4. CORREÇÃO (da análise anterior): Nome da chave (ex: 'directorsIDs')
+            params["directorsIDs"] = [r["personID"] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (company_id,))
+            params["RPEIDs"] = [r["rpeID"] for r in cursor.fetchall()] # 4. CORREÇÃO
+
+            cursor.execute("SELECT id FROM department WHERE companyID = ?", (company_id,))
+            params["departmentIDs"] = [r["id"] for r in cursor.fetchall()] # 4. CORREÇÃO
+            
+            return Company(**params)
+
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar company (CNPJ: {cnpj}): {e}")
+            return None
+        except TypeError as e:
+            # Captura erros se os nomes das chaves (Passo 4) ainda estiverem errados
+            print(f"[ERRO] Falha ao construir Company: {e}")
+            print(f"   Verifique se as chaves em 'params' batem com o __init__ de Company: {params.keys()}")
             return None
 
     def getDepartmentByID(self, departmentID: str) -> Optional[Department]:

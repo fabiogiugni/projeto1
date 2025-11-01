@@ -2,21 +2,21 @@ from .group import Group
 
 class Department(Group):
 
-    def __init__(self, name: str, directorID: str, companyID:str, id: str = None, RPEIDs: list[str] = None, teamIDs: list[str] = None):
-        super().__init__(name, id, RPEIDs)
-        self.__teamIDs = teamIDs if RPEIDs is not None else []
+    def __init__(self, name: str, directorID: str, companyID:str, id: str = None, rpeIds: list[str] = None, teamIds: list[str] = None):
+        super().__init__(name, id, rpeIds)
+        self.__teamIds = teamIds if teamIds is not None else []
         self.__directorID = directorID
         self.__companyID = companyID
 
     def addTeam(self, teamID : str):
-        self.__teamIDs.append(teamID)
+        self.__teamIds.append(teamID)
     
     def removeTeam(self, teamID : str):
-        self.__teamIDs.remove(teamID)
+        self.__teamIds.remove(teamID)
 
     @property
-    def teamIDs(self):
-        return self.__teamIDs
+    def teamIds(self):
+        return self.__teamIds
 
     @property
     def directorID(self):

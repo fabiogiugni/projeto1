@@ -2,26 +2,26 @@ from .group import Group
 
 class Company(Group):
 
-    def __init__(self, name: str, cnpj: str, id: str = None, RPEIDs: list[str] = None, departmentIDs: list[str] = None, directorsIDs: list[str] = None):
-        # Repassa id, name e RPEIDs para o Group
-        super().__init__(name,id,RPEIDs)
+    def __init__(self, name: str, cnpj: str, id: str = None, rpeIds: list[str] = None, departmentsIds: list[str] = None, directorsIds: list[str] = None):
+        # Repassa id, name e rpeIds para o Group
+        super().__init__(name,id,rpeIds)
         self.__cnpj = cnpj
-        self.__departmentIDs = departmentIDs if departmentIDs is not None else []
-        self.__directorsIDs = directorsIDs if directorsIDs is not None else []
+        self.__departmentsIds = departmentsIds if departmentsIds is not None else []
+        self.__directorsIds = directorsIds if directorsIds is not None else []
 
     def addDepartment(self, departmentID : str):
-        self.__departmentIDs.append(departmentID)
+        self.__departmentsIds.append(departmentID)
 
     def removeDepartment(self, departmentID : str):
-        self.__departmentIDs.remove(departmentID)
+        self.__departmentsIds.remove(departmentID)
 
     @property
-    def directorsIDs(self):
-        return self.__directorsIDs
+    def directorsIds(self):
+        return self.__directorsIds
 
     @property
     def departmentIDs(self):
-        return self.__departmentIDs
+        return self.__departmentsIds
 
     @property
     def cnpj(self):
