@@ -60,7 +60,7 @@ class Database:
                 email TEXT,
                 password TEXT,
                 FOREIGN KEY(companyID) REFERENCES company(id) ON DELETE SET NULL,
-                FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE SET NULL
+                FOREIGN KEY(departmentID) REFERENCES department(id) ON DELETE SET NULL,
                 FOREIGN KEY(teamID) REFERENCES team(id) ON DELETE SET NULL
             );
 

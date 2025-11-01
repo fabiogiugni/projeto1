@@ -3,11 +3,11 @@ from datetime import datetime
 
 class Data(Entity):
     
-    def __init__(self, description: str, responsibleID: str, date :datetime, id:str = None):
+    def __init__(self, description: str, responsibleID: str, date: str, id:str = None):
         super().__init__(id)
         self._description = description
         self._responsibleID = responsibleID
-        self._date = date.now()
+        self._date = date
     
     @property
     def description(self):
@@ -29,7 +29,7 @@ class Data(Entity):
         self._description = description
 
     @responsibleID.setter
-    def teamID(self, responsibleID: str):
+    def responsibleID(self, responsibleID: str):
         """Setter para o responsibleID"""
         if not isinstance(responsibleID, str):
             raise TypeError("O nome deve ser uma string.")

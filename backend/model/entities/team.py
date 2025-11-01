@@ -2,9 +2,9 @@ from .group import Group
 
 class Team(Group):
 
-    def __init__(self, name: str, managerID: str, departmentID: str, id: str = None, RPEIDs: list[str] = None, employeesIDs: list[str] = None):
-        super().__init__(name, id, RPEIDs)
-        self.__employeeIDs = employeesIDs if employeesIDs is not None else []
+    def __init__(self, name: str, managerID: str, departmentID: str, id: str = None, rpeIds: list[str] = None, employeeIds: list[str] = None):
+        super().__init__(name, id, rpeIds)
+        self.__employeeIDs = employeeIds if employeeIds is not None else []
         self.__managerID = managerID
         self.__departmentID = departmentID
 

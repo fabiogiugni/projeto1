@@ -1,9 +1,11 @@
 from ..database.database import Database
-from objective import Objective
+from .objective import Objective
+from .kpi import KPI
+from .kr import KR
 from abc import ABC, abstractmethod
 
 
-class FormasInterface(ABC):
+class ActionInterface(ABC):
    
     @abstractmethod
     def createObjective(obj: Objective, rpeID: str, db: Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
@@ -15,7 +17,7 @@ class FormasInterface(ABC):
     def createKR(kr: KR, objectiveID: str, db: Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
         pass
     @abstractmethod
-    def deleteData(data: Data,db : Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
+    def deleteData(data, db : Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
         pass
     @abstractmethod
     def collectIndicator(id: str, db : Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
