@@ -8,14 +8,14 @@ import {
   Profile, 
   RPE, 
   Teams 
-} from "./pages"; // ✅ uses index.js inside /pages automatically
+} from "./pages"; 
 
 export default function App() {
   return (
     <Router>
       <div>
-        <nav style={{ padding: "1rem", borderBottom: "1px solid #ccc" }}>
-          <ul style={{ display: "flex", gap: "1rem", listStyle: "none" }}>
+        <nav>
+          <ul>
             <li><Link to="/">Home</Link></li>
             <li><Link to="/login">Login</Link></li>
             <li><Link to="/profile">Profile</Link></li>
@@ -36,7 +36,6 @@ export default function App() {
           <Route path="/employees" element={<Employees />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/rpe" element={<RPE />} />
-          {/* Optional: catch-all route for 404 */}
           <Route path="*" element={<h2>Page Not Found</h2>} />
         </Routes>
       </div>
