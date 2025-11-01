@@ -1,6 +1,9 @@
-from person import Person
-from ..database.database import Database
-from rpe import RPE
+from .person import Person
+from .rpe import RPE
+from .objective import Objective
+from .kr import KR
+from .data import Data
+from .kpi import KPI
 
 class Director(Person):
 
@@ -9,35 +12,35 @@ class Director(Person):
         self.__responsibleIDs = responsibleIds
         self._role = "Director"
 
-    def createItem(self, item, db: Database): #User, team, department...
+    def createItem(self, item, db): #User, team, department...
         db.addItem(item)
     
-    def deleteItem(self, item, db: Database): #User, team, department...
+    def deleteItem(self, item, db): #User, team, department...
         db.deleteItemByObject(item)
 
-    def getDepartment(self, db: Database):
+    def getDepartment(self, db):
         return db.getDepartmentByID(self.departmentID)
     
-    def changeTeamManager(self, teamID : str, personID: str, db : Database):
+    def changeTeamManager(self, teamID : str, personID: str, db ):
         db.changeTeamManager(teamID, personID)
     
-    def changeDepartmentDirector(self, departmentID : str, personID: str, db : Database):
+    def changeDepartmentDirector(self, departmentID : str, personID: str, db ):
         db.changeDepartmentDirector(departmentID, personID)
     
-    def createObjective(self, obj: Objective, rpeID: str, db: Database):
+    def createObjective(self, obj: Objective, rpeID: str, db):
         db.addItem(obj)
         db.addObjectiveToRpe(obj.id,rpeID)
     
-    def createKPI(self, kpi: KPI, objectiveID: str, db: Database):
+    def createKPI(self, kpi: KPI, objectiveID: str, db):
         db.addItem(kpi)
         db.addKpiToObjective(objectiveID,kpi.id)
 
-    def createKR(self, kr: KR, objectiveID: str, db: Database):
+    def createKR(self, kr: KR, objectiveID: str, db):
         db.addItem(kr)
         db.addKpiToObjective(objectiveID,kr.id)
     
-    def deleteData(self, data: Data,db : Database):
+    def deleteData(self, data: Data,db ):
         db.deleteItemByObject(data)
 
-    def collectIndicator(self, kpi: KPI, db : Database):
+    def collectIndicator(self, kpi: KPI, db ):
         db.updateItem(kpi)
