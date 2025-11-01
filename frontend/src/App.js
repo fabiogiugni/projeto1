@@ -1,15 +1,45 @@
-import './App.css';
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { 
+  Company, 
+  Departments, 
+  Employees, 
+  Home, 
+  Login, 
+  Profile, 
+  RPE, 
+  Teams 
+} from "./pages"; // ✅ uses index.js inside /pages automatically
 
-function App() {
+export default function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <p>
-          Hello world!
-        </p>
-      </header>
-    </div>
+    <Router>
+      <div>
+        <nav style={{ padding: "1rem", borderBottom: "1px solid #ccc" }}>
+          <ul style={{ display: "flex", gap: "1rem", listStyle: "none" }}>
+            <li><Link to="/">Home</Link></li>
+            <li><Link to="/login">Login</Link></li>
+            <li><Link to="/profile">Profile</Link></li>
+            <li><Link to="/company">Company</Link></li>
+            <li><Link to="/departments">Departments</Link></li>
+            <li><Link to="/employees">Employees</Link></li>
+            <li><Link to="/teams">Teams</Link></li>
+            <li><Link to="/rpe">RPE</Link></li>
+          </ul>
+        </nav>
+
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/company" element={<Company />} />
+          <Route path="/departments" element={<Departments />} />
+          <Route path="/employees" element={<Employees />} />
+          <Route path="/teams" element={<Teams />} />
+          <Route path="/rpe" element={<RPE />} />
+          {/* Optional: catch-all route for 404 */}
+          <Route path="*" element={<h2>Page Not Found</h2>} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
-
-export default App;
