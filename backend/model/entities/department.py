@@ -1,6 +1,7 @@
-from group import Group
+from .group import Group
 
 class Department(Group):
+
     def __init__(self, name: str, directorID: str, companyID:str, id: str = None, RPEIDs: list[str] = None, teamIDs: list[str] = None):
         super().__init__(name, id, RPEIDs)
         self.__teamIDs = teamIDs if RPEIDs is not None else []

@@ -1,7 +1,13 @@
-from entity import Entity
-from ..database.database import Database
+from .entity import Entity
 
 class Person(Entity):
+    name: str
+    cpf: str
+    companyID: int
+    departmentID: int
+    teamID: int
+    email: str
+    password: str
 
     def __init__(self, name:str, cpf:str, companyID: str, departmentID: str, teamID: str, email: str, password: str, id:str = None):
         super().__init__(id)
@@ -68,7 +74,7 @@ class Person(Entity):
         else:
             return False
     
-    def getRPE(self, filter: str, db : Database):
+    def getRPE(self, filter: str, db ):
         """
         Busca RPEs associados a esta pessoa, com base no nível 
         (Time, Departamento ou Empresa)
