@@ -3,7 +3,7 @@ from datetime import datetime
 
 class Objective(Data):
 
-    def __init__(self, description: str, responsibleID: str, date: str, id:str = None, kpiIds: list[str] = None, krIds: list[str] = None):
+    def __init__(self, description: str, responsibleID: str, date: datetime, id:str = None, kpiIds: list[str] = None, krIds: list[str] = None):
         super().__init__(description, responsibleID, date, id)
         self.__kpiIds = kpiIds if kpiIds is not None else []
         self.__krIds = krIds if krIds is not None else []
