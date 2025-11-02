@@ -216,7 +216,7 @@ async def add_company_rpe(rpe_id : str, company_id : str):
    if company == None:
         raise HTTPException(status_code=404, detail="Empresa não encontrado")
    
-   company.addRPE(rpe)
+   company.addRPE(rpe.id)
 
    DB.updateItem(rpe)
    DB.updateItem(company)
@@ -232,7 +232,8 @@ async def add_company_rpe(rpe_id : str, department_id : str):
    if department == None:
         raise HTTPException(status_code=404, detail="Deprtamento não encontrado")
    
-   department.addRPE(rpe)
+   department.addRPE(rpe.id)
+   print("<<TESTE>>", department.RPEIDs)
 
    DB.updateItem(rpe)
    DB.updateItem(department)
@@ -248,7 +249,7 @@ async def add_company_rpe(rpe_id : str, team_id : str):
    if team == None:
         raise HTTPException(status_code=404, detail="Equipe não encontrado")
    
-   team.addRPE(rpe)
+   team.addRPE(rpe.id)
 
    DB.updateItem(rpe)
    DB.updateItem(team)

@@ -507,9 +507,7 @@ class Database:
     def updateItem(self, item: Entity) -> int:
         """
         Atualiza os campos diretos de um item no banco de dados.
-        NOTA: Este método NÃO atualiza as relações (listas como employeeIds,
-        rpeIds, etc.). Use os métodos add/delete (ex: addTeamMember) 
-        para gerenciar relações.
+        Agora também atualiza as relações RPEIDs para Team, Department e Company.
         """
         
         query = ""
@@ -519,65 +517,65 @@ class Database:
             # --- Bloco Person ---
             if isinstance(item, Person):
                 query = """UPDATE person 
-                           SET name = ?, cpf = ?, companyID = ?, departmentID = ?, teamID = ?,
-                               role = ?, email = ?, password = ?
-                           WHERE id = ?"""
+                        SET name = ?, cpf = ?, companyID = ?, departmentID = ?, teamID = ?,
+                            role = ?, email = ?, password = ?
+                        WHERE id = ?"""
                 params = (item.name, item.cpf, item.companyID, item.departmentID, item.teamID,
-                          item.role, item.email, item.password, 
-                          item.id) # ID por último
+                        item.role, item.email, item.password, 
+                        item.id) # ID por último
 
             # --- Bloco Company ---
             elif isinstance(item, Company):
                 query = """UPDATE company
-                           SET name = ?, cnpj = ?
-                           WHERE id = ?"""
+                        SET name = ?, cnpj = ?
+                        WHERE id = ?"""
                 params = (item.name, item.cnpj, item.id)
 
             # --- Bloco Department ---
             elif isinstance(item, Department):
                 query = """UPDATE department
-                           SET name = ?, companyID = ?, directorID = ?
-                           WHERE id = ?"""
+                        SET name = ?, companyID = ?, directorID = ?
+                        WHERE id = ?"""
                 params = (item.name, item.companyID, item.directorID, item.id)
             
             # --- Bloco Team ---
             elif isinstance(item, Team):
                 query = """UPDATE team
-                           SET name = ?, departmentID = ?, managerID = ?
-                           WHERE id = ?"""
+                        SET name = ?, departmentID = ?, managerID = ?
+                        WHERE id = ?"""
                 params = (item.name, item.departmentID, item.managerID, item.id)
 
             # --- Bloco RPE ---
             elif isinstance(item, RPE):
                 query = """UPDATE rpe
-                           SET description = ?, responsibleID = ?, date = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, item.id)
 
             # --- Bloco Objective ---
             elif isinstance(item, Objective):
                 query = """UPDATE objective
-                           SET description = ?, responsibleID = ?, date = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, item.id)
 
             # --- Bloco KR ---
             elif isinstance(item, KR):
                 dataText = json.dumps(item.data) 
                 query = """UPDATE kpi
-                           SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, dataText, item.goal,
-                          item.id)
+                        item.id)
 
             # --- Bloco KPI ---
             elif isinstance(item, KPI):
                 dataText = json.dumps(item.data) 
                 query = """UPDATE kpi
-                           SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, dataText, None,
-                          item.id)
+                        item.id)
             
             # --- Bloco Else ---
             else:
@@ -588,9 +586,47 @@ class Database:
             with self.__db:
                 cursor = self.__db.execute(query, params)
                 if cursor.rowcount == 0:
-                     print(f"[AVISO] Nenhum {type(item).__name__} atualizado (ID: {item.id}). ID não encontrado.")
-                     return 1
-            
+                    print(f"[AVISO] Nenhum {type(item).__name__} atualizado (ID: {item.id}). ID não encontrado.")
+                    return 1
+                
+                # --- ATUALIZAÇÃO DOS RPEIDs PARA TEAM, DEPARTMENT E COMPANY ---
+                
+                # Team RPEs
+                if isinstance(item, Team) and hasattr(item, 'RPEIDs'):
+                    # Primeiro remove todos os RPEs existentes
+                    self.__db.execute("DELETE FROM team_rpes WHERE teamID = ?", (item.id,))
+                    # Depois insere os novos RPEs
+                    for rpe_id in item.RPEIDs:
+                        self.__db.execute(
+                            "INSERT INTO team_rpes (teamID, rpeID) VALUES (?, ?)",
+                            (item.id, rpe_id)
+                        )
+                    print(f"RPEIDs do Team {item.id} atualizados: {item.RPEIDs}")
+                
+                # Department RPEs
+                elif isinstance(item, Department) and hasattr(item, 'RPEIDs'):
+                    # Remove todos os RPEs existentes
+                    self.__db.execute("DELETE FROM department_rpes WHERE departmentID = ?", (item.id,))
+                    # Insere os novos RPEs
+                    for rpe_id in item.RPEIDs:
+                        self.__db.execute(
+                            "INSERT INTO department_rpes (departmentID, rpeID) VALUES (?, ?)",
+                            (item.id, rpe_id)
+                        )
+                    print(f"RPEIDs do Department {item.id} atualizados: {item.RPEIDs}")
+                
+                # Company RPEs
+                elif isinstance(item, Company) and hasattr(item, 'RPEIDs'):
+                    # Remove todos os RPEs existentes
+                    self.__db.execute("DELETE FROM company_rpes WHERE companyID = ?", (item.id,))
+                    # Insere os novos RPEs
+                    for rpe_id in item.RPEIDs:
+                        self.__db.execute(
+                            "INSERT INTO company_rpes (companyID, rpeID) VALUES (?, ?)",
+                            (item.id, rpe_id)
+                        )
+                    print(f"RPEIDs da Company {item.id} atualizados: {item.RPEIDs}")
+                
             print(f"{type(item).__name__} (ID: {item.id}) atualizado com sucesso.")
             return 0 # Sucesso
 
