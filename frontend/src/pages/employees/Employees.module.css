@@ -14,3 +14,17 @@
 
   width: 50vw;
 }
+
+.iconButton {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.iconButton:hover {
+  transform: scale(1.1);
+  opacity: 0.8;
+}

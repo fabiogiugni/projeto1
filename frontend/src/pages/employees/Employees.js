@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Input, Select } from "../../components";
+import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Employees.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
 
@@ -16,7 +16,7 @@ export default function Employees() {
 
   console.log(searchedEmployee);
   /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = [];
+  let dataToShowOnTable = persons;
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -34,20 +34,17 @@ export default function Employees() {
           onChange={setSelectedDepartment}
         />
 
-        <button style={{ all: "unset" }}>
+        <button className={styles.iconButton}>
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
-      {/* {selectedDataType && selectedGroupType && selectedGroup ? (
-        <HomeTable
-          data={dataToShowOnTable}
-          type={selectedDataType}
-          group={selectedGroup}
-          groupType={selectedGroupType}
-        />
-      ) : (
-        <div>Preencha todos os dados visualizar a tabela</div>
-      )} */}
+
+      <CommonPageTable
+        data={dataToShowOnTable}
+        type={"employees"}
+        hasEditFunction={true}
+        hasDeleteFunction={true}
+      />
     </div>
   );
 }
