@@ -1,4 +1,9 @@
 from .group import Group
+from typing import TYPE_CHECKING
+
+# Usado para type hinting
+if TYPE_CHECKING:
+    from ..database.database import Database
 
 class Company(Group):
 
@@ -9,11 +14,13 @@ class Company(Group):
         self.__departmentsIds = departmentsIDs if departmentsIDs is not None else []
         self.__directorsIds = directorsIDs if directorsIDs is not None else []
 
-    def addDepartment(self, departmentID : str):
+    def addDepartment(self, departmentID : str, db: 'Database'):
         self.__departmentsIds.append(departmentID)
+        db.updateItem(self)
 
-    def removeDepartment(self, departmentID : str):
+    def removeDepartment(self, departmentID : str, db: 'Database'):
         self.__departmentsIds.remove(departmentID)
+        db.updateItem(self)
 
     @property
     def directorsIDs(self):

@@ -354,6 +354,95 @@ class Database:
         except sqlite3.Error as e:
             print(f"[ERRO] Erro SQL ao adicionar {entity_name} (ID: {item.id}): {e}")
             return 1
+        
+    def cleanupDataRelationships(self, data_id: str, data_type: str) -> None:
+        """
+        Remove todas as referências de um objeto Data (RPE, Objective, KPI, KR)
+        das tabelas de junção antes de sua exclusão.
+        """
+        cursor = self.__db.cursor()
+        
+        try:
+            if data_type in ["KPI", "KR"]:
+                # KPI/KR está ligado a Objective
+                cursor.execute("DELETE FROM objective_kpis WHERE kpiID = ?", (data_id,))
+
+            elif data_type == "Objective":
+                # Objective está ligado a RPEs
+                cursor.execute("DELETE FROM rpe_objectives WHERE objectiveID = ?", (data_id,))
+                # Objective está ligado a KPIs/KRs (caso não use CASCADE)
+                cursor.execute("DELETE FROM objective_kpis WHERE objectiveID = ?", (data_id,))
+
+            elif data_type == "RPE":
+                # RPE está ligado a Company, Department e Team
+                cursor.execute("DELETE FROM company_rpes WHERE rpeID = ?", (data_id,))
+                cursor.execute("DELETE FROM department_rpes WHERE rpeID = ?", (data_id,))
+                cursor.execute("DELETE FROM team_rpes WHERE rpeID = ?", (data_id,))
+                # RPE está ligado a Objectives (caso não use CASCADE)
+                cursor.execute("DELETE FROM rpe_objectives WHERE rpeID = ?", (data_id,))
+            
+            # Confirma as exclusões das relações
+            self.__db.commit()
+            
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao limpar relações do {data_type} (ID: {data_id}): {e}")
+            # É importante fazer um rollback se a exclusão da relação falhar, 
+            # para não prosseguir com a exclusão do item principal
+            self.__db.rollback() 
+            raise # Levanta o erro para interromper a operação principal
+    
+    def cleanupPersonRelationships(self, person_id: str) -> None:
+        """
+        Remove todas as referências de uma Pessoa nas tabelas de junção e
+        nos campos de Foreign Key (diretor, gerente, responsável) antes de sua exclusão.
+        
+        :param person_id: O ID da pessoa a ser excluída.
+        """
+        cursor = self.__db.cursor()
+        
+        try:
+            # --- 1. LIMPAR CARGOS DE LIDERANÇA (SET NULL) ---
+            
+            # 1a. Remove a pessoa como DIRETOR de um Departamento
+            # Garante que o campo FK na tabela 'department' seja nulo.
+            cursor.execute("UPDATE department SET directorID = NULL WHERE directorID = ?", (person_id,))
+            
+            # 1b. Remove a pessoa como GERENTE de um Time
+            # Garante que o campo FK na tabela 'team' seja nulo.
+            cursor.execute("UPDATE team SET managerID = NULL WHERE managerID = ?", (person_id,))
+
+            # --- 2. LIMPAR RESPONSABILIDADE POR DATA (SET NULL) ---
+            # Todos os objetos Data (RPE, Objective, KPI, KR) têm responsibleID.
+            
+            # 2a. RPEs
+            cursor.execute("UPDATE rpe SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
+            
+            # 2b. Objectives
+            cursor.execute("UPDATE objective SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
+
+            # 2c. KPIs (Inclui KRs, se usarem a mesma tabela)
+            cursor.execute("UPDATE kpi SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
+            
+            # --- 3. REMOVER DE TABELAS DE JUNÇÃO ---
+            
+            # 3a. Remove a pessoa como MEMBRO de um Time
+            # Assumindo uma tabela de junção 'team_members' ou 'team_person'.
+            # A cláusula IGNORE é usada para evitar falhas caso a tabela não exista com esse nome.
+            try:
+                cursor.execute("DELETE FROM team_members WHERE personID = ?", (person_id,))
+            except sqlite3.OperationalError:
+                pass # Tabela 'team_members' pode não existir, o que não impede a deleção.
+
+            # 3b. Remove o ID da pessoa das listas internas de responsáveis
+            # (Se você tiver listas armazenadas no DB em JSON, precisaria de uma lógica mais complexa de UPDATE JSON)
+            
+            # Confirma todas as alterações
+            self.__db.commit()
+            
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao limpar relações da Pessoa (ID: {person_id}): {e}")
+            self.__db.rollback() 
+            raise # Levanta o erro para interromper a operação principal
 
     # --- MÉTODOS DE RELAÇÃO UM-PARA-MUITOS (Assign/Unassign) ---
     
@@ -397,11 +486,17 @@ class Database:
     def unassignPersonToTeam(self, person_id: str) -> bool:
         return self._unassign_foreign_key("person", "teamID", person_id)
 
-    def assignPersonToCompany(self, person_id: str, company_id: str):
-        return self._assign_foreign_key("person", "companyID", company_id, person_id)
-
     def assignPersonToDepartment(self, person_id: str, department_id: str):
         return self._assign_foreign_key("person", "departmentID", department_id, person_id)
+    
+    def unassignPersonToDepartment(self, person_id: str) -> bool:
+        return self._unassign_foreign_key("person", "departmentID", person_id)
+    
+    def assignPersonToCompany(self, person_id: str, company_id: str):
+        return self._assign_foreign_key("person", "companyID", company_id, person_id)
+    
+    def unassignPersonToCompany(self, person_id: str) -> bool:
+        return self._unassign_foreign_key("person", "companyID", person_id)
 
     # Relações de RPE
     def assignResponsibleToRPE(self, responsible_id: str, rpe_id: str):
@@ -447,13 +542,6 @@ class Database:
         except sqlite3.Error as e:
             print(f"Erro de DB ao deletar de '{table}': {e}")
             return False
-
-    # team_members (Team <-> Person)
-    def addTeamMember(self, team_id: str, person_id: str) -> bool:
-        return self._add_junction("team_members", "teamID", team_id, "personID", person_id)
-
-    def deleteTeamMember(self, team_id: str, person_id: str) -> bool:
-        return self._delete_junction("team_members", "teamID", team_id, "personID", person_id)
 
     # person_responsibles (Person <-> Person)
     def addResponsibleToPerson(self, person_id: str, responsible_id: str) -> bool:
@@ -984,6 +1072,136 @@ class Database:
             print(f"Erro ao buscar KR (ID: {krID}): {e}")
             return None
         
+    def getRPEsByDepartmentID(self, departmentID: str) -> list[RPE]:
+        """
+        Retorna uma lista de objetos RPE associados a um departmentID.
+        """
+        if not departmentID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por DepartmentID {departmentID}: {e}")
+            return []
+
+    def getRPEsByCompanyID(self, companyID: str) -> list[RPE]:
+        """
+        Retorna uma lista de objetos RPE associados a um companyID.
+        """
+        if not companyID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por CompanyID {companyID}: {e}")
+            return []
+
+    def getRPEsByObjectiveID(self, objectiveID: str) -> list[RPE]:
+        """
+        Retorna uma lista de RPEs associados a um objectiveID.
+        """
+        if not objectiveID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            # 1. Busca IDs de RPE da tabela de junção
+            cursor.execute("SELECT rpeID FROM rpe_objectives WHERE objectiveID = ?", (objectiveID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            # 2. Reutiliza getRPEByID para construir os objetos
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por ObjectiveID {objectiveID}: {e}")
+            return []
+
+    def getRPEsByKpiID(self, kpiID: str) -> list[RPE]:
+        """
+        Retorna uma lista de RPEs associados a um kpiID (ou krID), 
+        fazendo a busca RPE -> Objective -> KPI.
+        """
+        if not kpiID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            
+            # 1. Busca IDs de RPE usando JOIN de 2 tabelas de junção
+            # (Encontra RPEs que têm Objetivos que, por sua vez, têm o KPI)
+            query = """
+                SELECT DISTINCT T1.rpeID 
+                FROM rpe_objectives AS T1
+                JOIN objective_kpis AS T2 ON T1.objectiveID = T2.objectiveID
+                WHERE T2.kpiID = ?
+            """
+            cursor.execute(query, (kpiID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+
+            # 2. Reutiliza getRPEByID para construir os objetos
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por KpiID {kpiID}: {e}")
+            return []
+        
+    def getRPEsByEntity(self, entity_type: str, entity_id: str) -> list[RPE]:
+        """
+        Busca RPEs associados a um ID de entidade específico (Team, Department ou Company).
+
+        """
+        if not entity_id:
+            print("[ALERTA] ID da entidade não fornecido.")
+            return []
+
+        if entity_type == "Team":
+            return self.getRPEsByTeamID(entity_id) # Esta já existe
+        
+        elif entity_type == "Department":
+            return self.getRPEsByDepartmentID(entity_id) # Esta já existe
+
+        elif entity_type == "Company":
+            return self.getRPEsByCompanyID(entity_id) # Esta já existe
+            
+        else:
+            print(f"[ERRO] Tipo de entidade '{entity_type}' não reconhecido.")
+            return []
+
+    def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
+        """
+        Retorna uma lista de objetos RPE associados a um teamID.
+        """
+        if not teamID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            # 1. Busca todos os IDs de RPE da tabela de junção
+            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            # 2. Reutiliza o getRPEByID para construir cada RPE de forma segura (com hidratação)
+            #    Isso é um "list comprehension" que faz um loop e filtra Nones
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
+            return []    
+
+# --- MÉTODOS DE MUDANÇA DE ESTADO ---
+
     def changeTeamManager(self, teamID: str, personID: str):
         """
         Muda o managerID de um time (team) para um novo personID.
@@ -1043,7 +1261,9 @@ class Database:
         except sqlite3.Error as e:
             print(f"[ERRO] Falha ao mudar Diretor do Departamento (ID: {departmentID}): {e}")
             return 1 # Código de falha
-        
+
+# --- MÉTODOS BOOLEAN ---    
+
     def isObjectiveTeamOrDepartmentLevel(self, objectiveID: str) -> bool:
         """
         Verifica se um Objetivo está associado a pelo menos um Team OU a pelo menos um Department.
@@ -1122,60 +1342,3 @@ class Database:
             print(f"[ERRO] Falha ao verificar nível do RPE {rpeID}: {e}")
             # Em caso de erro, assume que a verificação falhou.
             return False
-        
-    def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
-        """
-        Retorna uma lista de objetos RPE associados a um teamID.
-        """
-        if not teamID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            # 1. Busca todos os IDs de RPE da tabela de junção
-            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            # 2. Reutiliza o getRPEByID para construir cada RPE de forma segura (com hidratação)
-            #    Isso é um "list comprehension" que faz um loop e filtra Nones
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
-            return []
-
-    def getRPEsByDepartmentID(self, departmentID: str) -> list[RPE]:
-        """
-        Retorna uma lista de objetos RPE associados a um departmentID.
-        """
-        if not departmentID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por DepartmentID {departmentID}: {e}")
-            return []
-
-    def getRPEsByCompanyID(self, companyID: str) -> list[RPE]:
-        """
-        Retorna uma lista de objetos RPE associados a um companyID.
-        """
-        if not companyID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por CompanyID {companyID}: {e}")
-            return []
