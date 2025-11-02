@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class DataCreate(BaseModel):
+class ObjectiveCreate(BaseModel):
     description: str
     responsibleID : str
-    date: str # 
+    RPEID: str

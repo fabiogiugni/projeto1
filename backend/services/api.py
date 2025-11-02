@@ -23,7 +23,9 @@ from .BaseModels.DepartmentCreate import DepartmentCreate
 from .BaseModels.TeamCreate import TeamCreate
 from .BaseModels.UserCreate import UserCreate
 from .BaseModels.Login import Login
-from .BaseModels.DataCreate import DataCreate
+from .BaseModels.RPECreate import RPECreate
+from .BaseModels.KPICreate import KPICreate
+from .BaseModels.ObjectiveCreate import ObjectiveCreate
 from .BaseModels.KRCreate import KRCreate
 from .BaseModels.DataAdd import DataAdd
 from .BaseModels.KRUpdate import KRUpdate
@@ -110,8 +112,8 @@ async def get_user_rpes(user_id: str, level: str):
 
 # create RPE
 @app.post("/RPE")
-async def create_RPE(rpe : DataCreate):
-    date = datetime.strptime(rpe.date, "%Y-%m-%d")
+async def create_RPE(rpe : RPECreate):
+    date = datetime.now()
 
     new_rpe = RPE(rpe.description, rpe.responsibleID, date)
     print(f"Id do rpe: {new_rpe.id}")
@@ -120,23 +122,28 @@ async def create_RPE(rpe : DataCreate):
     return {"message": "RPE criado com sucesso!", "id": new_rpe.id}
 
 @app.post("/objective")
-async def create_obective(objective : DataCreate):
-    date = datetime.strptime(objective.date, "%Y-%m-%d")
+async def create_obective(objective : ObjectiveCreate):
+    date = datetime.now()
 
-    rpe = DB.getRPEByID(objective.RPEId)
+    rpe = DB.getRPEByID(objective.RPEID)
+    if rpe == None:
+       raise HTTPException(
+            status_code=404, 
+            detail=f"RPE nao encontrado"
+        )
+    else:
+        new_objective = Objective(objective.description, objective.responsibleID, date)
+        rpe.addObjective(new_objective)
+        DB.updateItem(rpe)
 
-    new_objective = Objective(objective.description, objective.responsibleID, date)
-    rpe.addObjective(new_objective)
-    DB.updateItem(rpe)
+        print(f"Id do objective: {new_objective.id}")
+        DB.addItem(new_objective)
 
-    print(f"Id do objective: {new_objective.id}")
-    DB.addItem(new_objective)
-
-    return {"message": "Objetivo criado com sucesso!", "id": new_objective.id}
+        return {"message": "Objetivo criado com sucesso!", "id": new_objective.id}
 
 @app.post("/kr")
-async def create_obective(kr : KRCreate):
-    date = datetime.strptime(kr.date, "%Y-%m-%d")
+async def create_kr(kr : KRCreate):
+    date = datetime.now()
 
     objective = DB.getObjectiveByID(kr.objectiveID)
 
@@ -151,8 +158,8 @@ async def create_obective(kr : KRCreate):
     return {"message": "KR criado com sucesso!", "id": new_kr.id}
 
 @app.post("/kpi")
-async def create_obective(kpi : DataCreate):
-    date = datetime.strptime(kpi.date, "%Y-%m-%d")
+async def create_kpi(kpi : KPICreate):
+    date = datetime.now()
 
     objective = DB.getObjectiveByID(kpi.objectiveID)
 
@@ -199,6 +206,56 @@ async def change_kpi_goal(id : str, kpi_data : DataAdd):
     DB.updateItem(kpi)
 
     return {"message" : "kpi atualizado com sucesso"}
+
+@app.put("/company_rpe/{rpe_id}/{company_id}")
+async def add_company_rpe(rpe_id : str, company_id : str):
+   rpe = DB.getRPEByID(rpe_id)
+   if rpe == None:
+        raise HTTPException(status_code=404, detail="RPE não encontrado")
+   company = DB.getCompanyByID(company_id)
+   if company == None:
+        raise HTTPException(status_code=404, detail="Empresa não encontrado")
+   
+   company.addRPE(rpe.id)
+
+   DB.updateItem(rpe)
+   DB.updateItem(company)
+
+   return {"message" : "RPE Adcionado com sucesso"}
+
+@app.put("/department_rpe/{rpe_id}/{department_id}")
+async def add_company_rpe(rpe_id : str, department_id : str):
+   rpe = DB.getRPEByID(rpe_id)
+   if rpe == None:
+        raise HTTPException(status_code=404, detail="RPE não encontrado")
+   department = DB.getDepartmentByID(department_id)
+   if department == None:
+        raise HTTPException(status_code=404, detail="Deprtamento não encontrado")
+   
+   department.addRPE(rpe.id)
+   print("<<TESTE>>", department.RPEIDs)
+
+   DB.updateItem(rpe)
+   DB.updateItem(department)
+
+   return {"message" : "RPE Adcionado com sucesso"}
+
+@app.put("/team_rpe/{rpe_id}/{team_id}")
+async def add_company_rpe(rpe_id : str, team_id : str):
+   rpe = DB.getRPEByID(rpe_id)
+   if rpe == None:
+        raise HTTPException(status_code=404, detail="RPE não encontrado")
+   team = DB.getTeamByID(team_id)
+   if team == None:
+        raise HTTPException(status_code=404, detail="Equipe não encontrado")
+   
+   team.addRPE(rpe.id)
+
+   DB.updateItem(rpe)
+   DB.updateItem(team)
+
+   return {"message" : "RPE Adcionado com sucesso"}
+
 
 # =====================
 #         Company
