@@ -1,4 +1,8 @@
 from .entity import Entity
+from typing import TYPE_CHECKING
+# Usado para type hinting
+if TYPE_CHECKING:
+    from ..database.database import Database
 
 class Person(Entity):
     name: str
@@ -74,17 +78,9 @@ class Person(Entity):
         else:
             return False
     
-    def getRPE(self, filter: str, db ):
+    def getRPEs(self, entity_type: str, entity_id: str, db: 'Database'):
         """
-        Busca RPEs associados a esta pessoa, com base no nível 
-        (Time, Departamento ou Empresa)
+        Busca RPEs associados a qualquer Team, Department ou Company,
+        independente de ser o da própria pessoa.
         """
-        if filter == "Team":
-            return db.getRPEsByTeamID(self.teamID)
-        elif filter == "Department":
-            return db.getRPEsByDepartmentID(self.departmentID)
-        elif filter == "Company":
-            return db.getRPEsByCompanyID(self.companyID)
-        else:
-            print(f"Filtro '{filter}' não reconhecido.")
-            return [] # Retorna lista vazia se o filtro for inválido
+        return db.getRPEsByEntity(entity_type, entity_id)
