@@ -2,17 +2,10 @@ import { Link } from "react-router-dom";
 import { Button } from "../../components";
 import styles from "./Header.module.css";
 import Logo from "../../assets/Logo.svg";
+import { directors } from "../../assets/testValues";
 
 export default function Header() {
-  let user = {
-    name: "Samuel",
-    cpf: "123.456.789.10",
-    companyID: 12334,
-    departmentID: 12334,
-    teamID: 12334,
-    email: "samuelfelipeif@gmail.com",
-    role: "director",
-  };
+  let user = directors[0];
 
   const role = user?.role || "";
 
