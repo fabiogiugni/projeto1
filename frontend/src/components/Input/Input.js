@@ -1,8 +1,11 @@
+import styles from "./Input.module.css";
 
-export default function Input() {
+export default function Input({ onInputChange, placeHolder }) {
   return (
-    <div>
-        Input
-    </div>
+    <input
+      onChange={(e) => onInputChange(e.target.value)}
+      className={styles.input}
+      placeholder={placeHolder}
+    />
   );
 }

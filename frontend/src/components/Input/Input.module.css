@@ -1,0 +1,25 @@
+.input {
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.2rem;
+  border: 1px solid #444444;
+  scroll-behavior: smooth;
+
+  width: 100%;
+
+  background-color: #1e1e1e;
+
+  color: #e3e3e3;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #666;
+}

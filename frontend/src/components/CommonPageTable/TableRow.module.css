@@ -1,0 +1,55 @@
+.goodIndicator {
+  color: #77dd77;
+}
+
+.badIndicator {
+  color: #ff8688;
+}
+
+.description {
+  font-size: 0.9em;
+  color: #999;
+}
+
+.numberContainer {
+  text-align: center;
+}
+
+.tableItem {
+  border-top: 1px solid #444444;
+
+  padding: 0.5rem 0rem;
+}
+
+.actionCell {
+  width: 40px;
+}
+
+.actionButtons {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.iconButton {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.iconButton img {
+  width: 1rem;
+  height: 1rem;
+}
+
+.iconButton:hover {
+  transform: scale(1.05);
+  opacity: 1;
+}
