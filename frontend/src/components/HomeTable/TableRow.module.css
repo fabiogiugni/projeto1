@@ -1,0 +1,22 @@
+.tableItem {
+  border-top: 1px solid #444444;
+
+  padding: 0.5rem 0rem;
+}
+
+.goodIndicator {
+  color: #77dd77;
+}
+
+.badIndicator {
+  color: #ff8688;
+}
+
+.description {
+  font-size: 0.9em;
+  color: #999;
+}
+
+.numberContainer {
+  text-align: center;
+}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Select, Table } from "../../components";
+import { HomeTable, Select } from "../../components";
 import styles from "./Home.module.css";
 
 import {
@@ -30,7 +30,8 @@ export default function Home() {
   const dataTypeOptions = [
     { label: "RPE", value: "rpe" },
     { label: "Objetivo", value: "objective" },
-    { label: "KR/KPI", value: "krkpi" },
+    { label: "KR", value: "kr" },
+    { label: "KPI", value: "kpi" },
   ];
 
   let groupOptions = [];
@@ -47,7 +48,13 @@ export default function Home() {
   if (selectedGroupType === "team")
     groupOptions = teams.map((team) => ({ label: team.name, value: team.id }));
 
-  console.log(`${selectedGroupType} ${selectedGroup} ${selectedDataType}`);
+  /* espaço destinado a chamar a função do backend */
+  let dataToShowOnTable = [];
+  if (selectedDataType === "RPE") dataToShowOnTable = rpes;
+  else if (selectedDataType === "objective") dataToShowOnTable = objectives;
+  else if (selectedDataType === "kr") dataToShowOnTable = krs;
+  else dataToShowOnTable = kpis;
+
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
       <h1>Home</h1>
@@ -69,6 +76,16 @@ export default function Home() {
           onChange={setSelectedDataType}
         />
       </div>
+      {selectedDataType && selectedGroupType && selectedGroup ? (
+        <HomeTable
+          data={dataToShowOnTable}
+          type={selectedDataType}
+          group={selectedGroup}
+          groupType={selectedGroupType}
+        />
+      ) : (
+        <div>Preencha todos os dados visualizar a tabela</div>
+      )}
     </div>
   );
 }

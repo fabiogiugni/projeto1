@@ -15,27 +15,99 @@ export const teams = [
 ];
 
 export const rpes = [
-  { id: 1, name: "RPE Financeiro 2025", departmentId: 1 },
-  { id: 2, name: "RPE Operacional 2025", departmentId: 2 },
-  { id: 3, name: "RPE Comercial 2025", departmentId: 3 },
+  {
+    id: 1,
+    name: "RPE Financeiro 2025",
+    description: "RPE Financeiro 2025",
+    departmentId: 1,
+  },
+  {
+    id: 2,
+    name: "RPE Operacional 2025",
+    description: "RPE Financeiro 2025",
+    departmentId: 2,
+  },
+  {
+    id: 3,
+    name: "RPE Comercial 2025",
+    description: "RPE Financeiro 2025",
+    departmentId: 3,
+  },
 ];
 
 export const objectives = [
-  { id: 1, name: "Aumentar Receita", rpeId: 1 },
-  { id: 2, name: "Reduzir Custos", rpeId: 2 },
-  { id: 3, name: "Expandir Mercado", rpeId: 3 },
+  {
+    id: 1,
+    name: "Aumentar Receita",
+    description: "Aumentar Receita",
+    rpeId: 1,
+  },
+  { id: 2, name: "Reduzir Custos", description: "Aumentar Receita", rpeId: 2 },
+  {
+    id: 3,
+    name: "Expandir Mercado",
+    description: "Aumentar Receita",
+    rpeId: 3,
+  },
 ];
 
 export const krs = [
-  { id: 1, name: "Lucro Líquido", goal: 100000, objectiveId: 1 },
-  { id: 2, name: "Eficiência Operacional", goal: 0.85, objectiveId: 2 },
-  { id: 3, name: "Novos Clientes", goal: 50, objectiveId: 3 },
+  {
+    id: 1,
+    name: "Lucro Líquido",
+    description: "Descrição novos clientes",
+    goal: 100000,
+    objectiveId: 1,
+    value: 10,
+    prevValue: 6,
+  },
+  {
+    id: 2,
+    name: "Eficiência Operacional",
+    description: "Descrição novos clientes",
+    goal: 0.85,
+    objectiveId: 2,
+    value: 10,
+    prevValue: 5,
+  },
+  {
+    id: 3,
+    name: "Novos Clientes",
+    description: "Descrição novos clientes",
+    goal: 50,
+    objectiveId: 3,
+    value: 9,
+    prevValue: 4,
+  },
 ];
 
 export const kpis = [
-  { id: 1, name: "ROI", goal: 10, krId: 1 },
-  { id: 2, name: "Taxa de Produção", goal: 90, krId: 2 },
-  { id: 3, name: "Conversão de Vendas", goal: 20, krId: 3 },
+  {
+    id: 1,
+    name: "ROI",
+    description: "Descrição ROI",
+    goal: 10,
+    krId: 1,
+    value: 10,
+    prevValue: 6,
+  },
+  {
+    id: 2,
+    name: "Taxa de Produção",
+    description: "Descrição Taxa de Prod",
+    value: 30,
+    goal: 90,
+    krId: 2,
+    prevValue: 5,
+  },
+  {
+    id: 3,
+    name: "Conversão de Vendas",
+    description: "Descrição Conversão",
+    krId: 3,
+    prevValue: 4,
+    value: 10,
+  },
 ];
 
 export const persons = [
