@@ -595,9 +595,7 @@ class Database:
     def updateItem(self, item: Entity) -> int:
         """
         Atualiza os campos diretos de um item no banco de dados.
-        NOTA: Este método NÃO atualiza as relações (listas como employeeIds,
-        rpeIds, etc.). Use os métodos add/delete (ex: addTeamMember) 
-        para gerenciar relações.
+        Agora também atualiza as relações RPEIDs para Team, Department e Company.
         """
         
         query = ""
@@ -607,65 +605,65 @@ class Database:
             # --- Bloco Person ---
             if isinstance(item, Person):
                 query = """UPDATE person 
-                           SET name = ?, cpf = ?, companyID = ?, departmentID = ?, teamID = ?,
-                               role = ?, email = ?, password = ?
-                           WHERE id = ?"""
+                        SET name = ?, cpf = ?, companyID = ?, departmentID = ?, teamID = ?,
+                            role = ?, email = ?, password = ?
+                        WHERE id = ?"""
                 params = (item.name, item.cpf, item.companyID, item.departmentID, item.teamID,
-                          item.role, item.email, item.password, 
-                          item.id) # ID por último
+                        item.role, item.email, item.password, 
+                        item.id) # ID por último
 
             # --- Bloco Company ---
             elif isinstance(item, Company):
                 query = """UPDATE company
-                           SET name = ?, cnpj = ?
-                           WHERE id = ?"""
+                        SET name = ?, cnpj = ?
+                        WHERE id = ?"""
                 params = (item.name, item.cnpj, item.id)
 
             # --- Bloco Department ---
             elif isinstance(item, Department):
                 query = """UPDATE department
-                           SET name = ?, companyID = ?, directorID = ?
-                           WHERE id = ?"""
+                        SET name = ?, companyID = ?, directorID = ?
+                        WHERE id = ?"""
                 params = (item.name, item.companyID, item.directorID, item.id)
             
             # --- Bloco Team ---
             elif isinstance(item, Team):
                 query = """UPDATE team
-                           SET name = ?, departmentID = ?, managerID = ?
-                           WHERE id = ?"""
+                        SET name = ?, departmentID = ?, managerID = ?
+                        WHERE id = ?"""
                 params = (item.name, item.departmentID, item.managerID, item.id)
 
             # --- Bloco RPE ---
             elif isinstance(item, RPE):
                 query = """UPDATE rpe
-                           SET description = ?, responsibleID = ?, date = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, item.id)
 
             # --- Bloco Objective ---
             elif isinstance(item, Objective):
                 query = """UPDATE objective
-                           SET description = ?, responsibleID = ?, date = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, item.id)
 
             # --- Bloco KR ---
             elif isinstance(item, KR):
                 dataText = json.dumps(item.data) 
                 query = """UPDATE kpi
-                           SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, dataText, item.goal,
-                          item.id)
+                        item.id)
 
             # --- Bloco KPI ---
             elif isinstance(item, KPI):
                 dataText = json.dumps(item.data) 
                 query = """UPDATE kpi
-                           SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
-                           WHERE id = ?"""
+                        SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                        WHERE id = ?"""
                 params = (item.description, item.responsibleID, item.date, dataText, None,
-                          item.id)
+                        item.id)
             
             # --- Bloco Else ---
             else:
@@ -676,9 +674,47 @@ class Database:
             with self.__db:
                 cursor = self.__db.execute(query, params)
                 if cursor.rowcount == 0:
-                     print(f"[AVISO] Nenhum {type(item).__name__} atualizado (ID: {item.id}). ID não encontrado.")
-                     return 1
-            
+                    print(f"[AVISO] Nenhum {type(item).__name__} atualizado (ID: {item.id}). ID não encontrado.")
+                    return 1
+                
+                # --- ATUALIZAÇÃO DOS RPEIDs PARA TEAM, DEPARTMENT E COMPANY ---
+                
+                # Team RPEs
+                if isinstance(item, Team) and hasattr(item, 'RPEIDs'):
+                    # Primeiro remove todos os RPEs existentes
+                    self.__db.execute("DELETE FROM team_rpes WHERE teamID = ?", (item.id,))
+                    # Depois insere os novos RPEs
+                    for rpe_id in item.RPEIDs:
+                        self.__db.execute(
+                            "INSERT INTO team_rpes (teamID, rpeID) VALUES (?, ?)",
+                            (item.id, rpe_id)
+                        )
+                    print(f"RPEIDs do Team {item.id} atualizados: {item.RPEIDs}")
+                
+                # Department RPEs
+                elif isinstance(item, Department) and hasattr(item, 'RPEIDs'):
+                    # Remove todos os RPEs existentes
+                    self.__db.execute("DELETE FROM department_rpes WHERE departmentID = ?", (item.id,))
+                    # Insere os novos RPEs
+                    for rpe_id in item.RPEIDs:
+                        self.__db.execute(
+                            "INSERT INTO department_rpes (departmentID, rpeID) VALUES (?, ?)",
+                            (item.id, rpe_id)
+                        )
+                    print(f"RPEIDs do Department {item.id} atualizados: {item.RPEIDs}")
+                
+                # Company RPEs
+                elif isinstance(item, Company) and hasattr(item, 'RPEIDs'):
+                    # Remove todos os RPEs existentes
+                    self.__db.execute("DELETE FROM company_rpes WHERE companyID = ?", (item.id,))
+                    # Insere os novos RPEs
+                    for rpe_id in item.RPEIDs:
+                        self.__db.execute(
+                            "INSERT INTO company_rpes (companyID, rpeID) VALUES (?, ?)",
+                            (item.id, rpe_id)
+                        )
+                    print(f"RPEIDs da Company {item.id} atualizados: {item.RPEIDs}")
+                
             print(f"{type(item).__name__} (ID: {item.id}) atualizado com sucesso.")
             return 0 # Sucesso
 
@@ -765,39 +801,50 @@ class Database:
             return None
 
     def getCompanyByID(self, companyID: str) -> Optional[Company]:
-        """ Retorna um objeto Company pelo ID, hidratando suas listas de junção. """
+        """Retorna um objeto Company pelo ID, hidratando suas listas de junção."""
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM company WHERE id = ?", (companyID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
             # Hidratação 1: 'directorsIds' (N-N)
             cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (companyID,))
-            params["directorsIds"] = [r["personID"] for r in cursor.fetchall()]
+            # CORREÇÃO: Usar índice 0 em vez de chave de dicionário
+            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]
             
             # Hidratação 2: 'rpeIds' (N-N)
             cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
-            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]
 
             # Hidratação 3: 'departmentsIds' (1-N)
             cursor.execute("SELECT id FROM department WHERE companyID = ?", (companyID,))
-            params["departmentsIds"] = [r["id"] for r in cursor.fetchall()]
+            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]
             
             return Company(**params)
-            
+        
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar company (ID: {companyID}): {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Company: {e}")
+            return None
+                
         except sqlite3.Error as e:
             print(f"Erro ao buscar company (ID: {companyID}): {e}")
             return None
     
     def getCompanyByCnpj(self, cnpj: str) -> Optional[Company]:
-        """ Retorna um objeto Company pelo cnpj, hidratando suas listas de junção. """
+        """Retorna um objeto Company pelo cnpj, hidratando suas listas de junção."""
         try:
             cursor = self.__db.cursor()
             
-            # 1. CORREÇÃO: Buscar pela coluna 'cnpj'
+            # Buscar pela coluna 'cnpj'
             cursor.execute("SELECT * FROM company WHERE cnpj = ?", (cnpj,))
             row = cursor.fetchone()
             
@@ -805,57 +852,64 @@ class Database:
                 print(f"[AVISO] Nenhuma empresa encontrada com o CNPJ {cnpj}.")
                 return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
-            # 2. CORREÇÃO: Extrair o ID da empresa que acabamos de encontrar
+            # Extrair o ID da empresa
             company_id = params["id"] 
             
             # --- Hidratação usando o company_id ---
             
-            # 3. CORREÇÃO: Usar a variável company_id
+            # Buscar directors
             cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (company_id,))
-            # 4. CORREÇÃO (da análise anterior): Nome da chave (ex: 'directorsIDs')
-            params["directorsIDs"] = [r["personID"] for r in cursor.fetchall()]
+            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
             
+            # Buscar RPEs
             cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (company_id,))
-            params["RPEIDs"] = [r["rpeID"] for r in cursor.fetchall()] # 4. CORREÇÃO
-
+            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
+            
+            # Buscar departments
             cursor.execute("SELECT id FROM department WHERE companyID = ?", (company_id,))
-            params["departmentIDs"] = [r["id"] for r in cursor.fetchall()] # 4. CORREÇÃO
+            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
             
             return Company(**params)
 
         except sqlite3.Error as e:
             print(f"Erro ao buscar company (CNPJ: {cnpj}): {e}")
             return None
-        except TypeError as e:
-            # Captura erros se os nomes das chaves (Passo 4) ainda estiverem errados
+        except Exception as e:
             print(f"[ERRO] Falha ao construir Company: {e}")
-            print(f"   Verifique se as chaves em 'params' batem com o __init__ de Company: {params.keys()}")
             return None
 
     def getDepartmentByID(self, departmentID: str) -> Optional[Department]:
-        """ Retorna um objeto Department pelo ID, hidratando suas listas de junção. """
+        """Retorna um objeto Department pelo ID, hidratando suas listas de junção."""
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM department WHERE id = ?", (departmentID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
             # Hidratação 1: 'rpeIds' (N-N)
             cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
-            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+            params["rpeIds"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
 
             # Hidratação 2: 'teamsIds' (1-N)
             cursor.execute("SELECT id FROM team WHERE departmentID = ?", (departmentID,))
-            params["teamsIds"] = [r["id"] for r in cursor.fetchall()]
+            params["teamsIds"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
             
             return Department(**params)
-            
+        
         except sqlite3.Error as e:
             print(f"Erro ao buscar department (ID: {departmentID}): {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Department: {e}")
             return None
 
     def getTeamByID(self, teamID: str) -> Optional[Team]:
@@ -883,27 +937,31 @@ class Database:
             return None
 
     def getRPEByID(self, rpeID: str) -> Optional[RPE]:
-        """ Retorna um objeto RPE pelo ID, hidratando 'objectivesIds' pela tabela de junção. """
+        """Retorna um objeto RPE pelo ID, hidratando 'objectivesIds' pela tabela de junção."""
         try:
-            # (Assumindo que self.__db.row_factory = sqlite3.Row foi definido no __init__)
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM rpe WHERE id = ?", (rpeID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
             # Hidratação CORRETA: 'objectivesIds' (N-para-N)
-            # Busca na tabela de junção 'rpe_objectives'
             cursor.execute("SELECT objectiveID FROM rpe_objectives WHERE rpeID = ?", (rpeID,))
             
-            # O construtor do RPE espera 'objectivesIds'
-            params["objectivesIds"] = [r["objectiveID"] for r in cursor.fetchall()]
+            # CORREÇÃO: Usar índice 0 em vez de chave de dicionário
+            params["objectivesIds"] = [r[0] for r in cursor.fetchall()]
             
             return RPE(**params)
             
         except sqlite3.Error as e:
             print(f"Erro ao buscar RPE (ID: {rpeID}): {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir RPE: {e}")
             return None
 
     def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:

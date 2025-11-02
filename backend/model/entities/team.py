@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 class Team(Group):
 
-    def __init__(self, name: str, managerID: str, departmentID: str, id: str = None, rpeIds: list[str] = None, employeeIds: list[str] = None):
+    def __init__(self, name: str, managerID: str=None, departmentID: str=None, id: str = None, rpeIds: list[str] = None, employeeIds: list[str] = None):
         super().__init__(name, id, rpeIds)
         self.__employeeIDs = employeeIds if employeeIds is not None else []
         self.__managerID = managerID
