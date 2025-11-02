@@ -705,11 +705,11 @@ class Database:
             return None
     
     def getCompanyByCnpj(self, cnpj: str) -> Optional[Company]:
-        """ Retorna um objeto Company pelo cnpj, hidratando suas listas de junção. """
+        """Retorna um objeto Company pelo cnpj, hidratando suas listas de junção."""
         try:
             cursor = self.__db.cursor()
             
-            # 1. CORREÇÃO: Buscar pela coluna 'cnpj'
+            # Buscar pela coluna 'cnpj'
             cursor.execute("SELECT * FROM company WHERE cnpj = ?", (cnpj,))
             row = cursor.fetchone()
             
@@ -717,57 +717,64 @@ class Database:
                 print(f"[AVISO] Nenhuma empresa encontrada com o CNPJ {cnpj}.")
                 return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
-            # 2. CORREÇÃO: Extrair o ID da empresa que acabamos de encontrar
+            # Extrair o ID da empresa
             company_id = params["id"] 
             
             # --- Hidratação usando o company_id ---
             
-            # 3. CORREÇÃO: Usar a variável company_id
+            # Buscar directors
             cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (company_id,))
-            # 4. CORREÇÃO (da análise anterior): Nome da chave (ex: 'directorsIDs')
-            params["directorsIDs"] = [r["personID"] for r in cursor.fetchall()]
+            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
             
+            # Buscar RPEs
             cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (company_id,))
-            params["RPEIDs"] = [r["rpeID"] for r in cursor.fetchall()] # 4. CORREÇÃO
-
+            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
+            
+            # Buscar departments
             cursor.execute("SELECT id FROM department WHERE companyID = ?", (company_id,))
-            params["departmentIDs"] = [r["id"] for r in cursor.fetchall()] # 4. CORREÇÃO
+            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
             
             return Company(**params)
 
         except sqlite3.Error as e:
             print(f"Erro ao buscar company (CNPJ: {cnpj}): {e}")
             return None
-        except TypeError as e:
-            # Captura erros se os nomes das chaves (Passo 4) ainda estiverem errados
+        except Exception as e:
             print(f"[ERRO] Falha ao construir Company: {e}")
-            print(f"   Verifique se as chaves em 'params' batem com o __init__ de Company: {params.keys()}")
             return None
 
     def getDepartmentByID(self, departmentID: str) -> Optional[Department]:
-        """ Retorna um objeto Department pelo ID, hidratando suas listas de junção. """
+        """Retorna um objeto Department pelo ID, hidratando suas listas de junção."""
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM department WHERE id = ?", (departmentID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
             # Hidratação 1: 'rpeIds' (N-N)
             cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
-            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+            params["rpeIds"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
 
             # Hidratação 2: 'teamsIds' (1-N)
             cursor.execute("SELECT id FROM team WHERE departmentID = ?", (departmentID,))
-            params["teamsIds"] = [r["id"] for r in cursor.fetchall()]
+            params["teamsIds"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
             
             return Department(**params)
-            
+        
         except sqlite3.Error as e:
             print(f"Erro ao buscar department (ID: {departmentID}): {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Department: {e}")
             return None
 
     def getTeamByID(self, teamID: str) -> Optional[Team]:
