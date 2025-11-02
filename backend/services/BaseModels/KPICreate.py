@@ -1,8 +1,7 @@
 from pydantic import BaseModel
 
 
-class KRCreate(BaseModel):
+class KPICreate(BaseModel):
     description: str
     responsibleID : str
-    goal : float
-    objectiveID: str
+    ObjectiveId: str

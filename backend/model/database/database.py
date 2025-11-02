@@ -677,29 +677,40 @@ class Database:
             return None
 
     def getCompanyByID(self, companyID: str) -> Optional[Company]:
-        """ Retorna um objeto Company pelo ID, hidratando suas listas de junção. """
+        """Retorna um objeto Company pelo ID, hidratando suas listas de junção."""
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM company WHERE id = ?", (companyID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
             # Hidratação 1: 'directorsIds' (N-N)
             cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (companyID,))
-            params["directorsIds"] = [r["personID"] for r in cursor.fetchall()]
+            # CORREÇÃO: Usar índice 0 em vez de chave de dicionário
+            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]
             
             # Hidratação 2: 'rpeIds' (N-N)
             cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
-            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]
 
             # Hidratação 3: 'departmentsIds' (1-N)
             cursor.execute("SELECT id FROM department WHERE companyID = ?", (companyID,))
-            params["departmentsIds"] = [r["id"] for r in cursor.fetchall()]
+            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]
             
             return Company(**params)
-            
+        
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar company (ID: {companyID}): {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Company: {e}")
+            return None
+                
         except sqlite3.Error as e:
             print(f"Erro ao buscar company (ID: {companyID}): {e}")
             return None
@@ -802,27 +813,31 @@ class Database:
             return None
 
     def getRPEByID(self, rpeID: str) -> Optional[RPE]:
-        """ Retorna um objeto RPE pelo ID, hidratando 'objectivesIds' pela tabela de junção. """
+        """Retorna um objeto RPE pelo ID, hidratando 'objectivesIds' pela tabela de junção."""
         try:
-            # (Assumindo que self.__db.row_factory = sqlite3.Row foi definido no __init__)
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM rpe WHERE id = ?", (rpeID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                return None
             
-            params = dict(row)
+            # CORREÇÃO: Criar dicionário manualmente usando description
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
             # Hidratação CORRETA: 'objectivesIds' (N-para-N)
-            # Busca na tabela de junção 'rpe_objectives'
             cursor.execute("SELECT objectiveID FROM rpe_objectives WHERE rpeID = ?", (rpeID,))
             
-            # O construtor do RPE espera 'objectivesIds'
-            params["objectivesIds"] = [r["objectiveID"] for r in cursor.fetchall()]
+            # CORREÇÃO: Usar índice 0 em vez de chave de dicionário
+            params["objectivesIds"] = [r[0] for r in cursor.fetchall()]
             
             return RPE(**params)
             
         except sqlite3.Error as e:
             print(f"Erro ao buscar RPE (ID: {rpeID}): {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir RPE: {e}")
             return None
 
     def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
