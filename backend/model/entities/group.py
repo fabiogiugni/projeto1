@@ -1,4 +1,9 @@
 from .entity import Entity
+from typing import TYPE_CHECKING
+
+# Usado para type hinting
+if TYPE_CHECKING:
+    from ..database.database import Database
 
 class Group(Entity):
 
@@ -7,11 +12,13 @@ class Group(Entity):
         self._name = name
         self._RPEIDs = RPEIDs if RPEIDs is not None else []
 
-    def addRPE(self, RPEID : str):
+    def addRPE(self, RPEID : str, db: 'Database'):
         self._RPEIDs.append(RPEID)
+        db.updateItem(self)
 
-    def deleteRPE(self, RPEID : str):
+    def deleteRPE(self, RPEID : str, db: 'Database'):
         self._RPEIDs.remove(RPEID)
+        db.updateItem(self)
 
     @property
     def RPEIDs(self):

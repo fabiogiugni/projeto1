@@ -1,5 +1,10 @@
 from .entity import Entity
-from datetime import datetime
+
+from typing import TYPE_CHECKING, Any, Dict
+
+# Usado para type hinting
+if TYPE_CHECKING:
+    from ..database.database import Database
 
 class Data(Entity):
     
@@ -34,3 +39,13 @@ class Data(Entity):
         if not isinstance(responsibleID, str):
             raise TypeError("O nome deve ser uma string.")
         self._responsibleID = responsibleID
+
+    def getData(self, db: 'Database') -> Dict[str, Any]:
+        """Implementação base do getData da interface."""
+        return {
+            "id": self.id,
+            "type": self.__class__.__name__, # Útil para o frontend
+            "description": self.description,
+            "responsibleID": self.responsibleID,
+            "date": self.date
+        }
