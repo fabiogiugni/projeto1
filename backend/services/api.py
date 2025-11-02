@@ -207,7 +207,9 @@ async def change_kpi_goal(id : str, kpi_data : DataAdd):
 # get company using cnpj
 @app.get("/company/{cnpj}")
 async def get_company(cnpj : str):
-  return DB.getCompanyByCnpj(cnpj)
+  company = DB.getCompanyByCnpj(cnpj)
+  return {"data" : company}
+  #return {"id": company.id, "name" : company.name, "cnpj": company.cnpj, "departments" : company.departmentIDs, "directors": company.directorsIds}
 
 @app.post("/company")
 async def create_company(company : CompanyCreate):
@@ -219,28 +221,27 @@ async def create_company(company : CompanyCreate):
 # =====================
 #      Department
 # =====================
-@app.get("/get_department/{id}")
-async def get_RPE(id : str):
+@app.get("/department/{id}")
+async def get_department(id : str):
   return {"data" : DB.getDepartmentByID(id)}
 
 @app.post("/department")
 async def create_department(department : DepartmentCreate):
-  new_department = Department(department.name)
-  new_department.companyID = department.companyID
+  new_department = Department(department.name, companyID=department.companyID)
+
   DB.addItem(new_department)
   return {"message": "Departamento criado com sucesso!"}
 
 # =====================
 #         Team
 # =====================
-@app.get("/get_team/{id}")
+@app.get("/team/{id}")
 async def get_RPE(id : str):
     return {"data" : DB.getDepartmentByID(id)}
 
 @app.post("/team")
 async def create_team(team : TeamCreate):
-    new_team = Team(team.name)
-    new_team.departmentID = team.departmentID
+    new_team = Team(team.name, departmentID=team.departmentID)
     DB.addItem(new_team)
     return {"message": "Time criado com sucesso!"}
 
