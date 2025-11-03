@@ -3,48 +3,51 @@ import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Teams.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
 
-import { teams, departments } from "../../assets/testValues";
+import { persons, departments } from "../../assets/testValues";
 
 export default function Teams() {
-  const [selectedDepartment, setSelectedDepartment] = useState("");
-  const [searchedTeam, setSearchedTeam] = useState("");
+  const [selectedTeam, setSelectedTeam] = useState("");
+  const [searchedEmployee, setSearchedEmployee] = useState("");
 
   const departmentOptions = departments.map((department) => ({
     label: department.name,
     value: department.id,
   }));
 
-  console.log(searchedTeam);
+  console.log(searchedEmployee);
   /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = teams;
+  let dataToShowOnTable = persons;
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
-      <h1>Equipes</h1>
+      <h1>Equipe</h1>
 
       <div className={styles.inputContainer}>
         <Input
-          onInputChange={setSearchedTeam}
-          placeHolder={"Digite o nome da equipe"}
+          onInputChange={setSearchedEmployee}
+          placeHolder={"Digite o nome do funcionário"}
         />
 
         <Select
-          title="Departamento"
+          title="Time"
           options={departmentOptions}
-          onChange={setSelectedDepartment}
+          onChange={setSelectedTeam}
         />
 
         <button className={styles.iconButton}>
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
-
-      <CommonPageTable
-        data={dataToShowOnTable}
-        type={"teams"}
-        hasEditFunction={true}
-        hasDeleteFunction={true}
-      />
+      {!selectedTeam ? (
+        "Escolha uma equipe para ver a tabela "
+      ) : (
+        <CommonPageTable
+          data={dataToShowOnTable}
+          type={"teams"}
+          hasEditFunction={true}
+          hasDeleteFunction={true}
+        />
+      )}
     </div>
   );
 }

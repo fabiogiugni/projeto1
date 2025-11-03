@@ -42,10 +42,10 @@ export default function Header() {
               Empresa
             </Link>
             <Link to="/departments" className={styles.link}>
-              Departamentos
+              Departamento
             </Link>
             <Link to="/teams" className={styles.link}>
-              Equipes
+              Equipe
             </Link>
             <Link to="/employees" className={styles.link}>
               Funcionários
