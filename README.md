@@ -129,25 +129,37 @@ O frontend será iniciado em:
 ```
 .
 ├── backend/
-│   ├── model/
-│   │   ├── database/
-│   │   │   └── database.py
-│   │   └── entities/
-│   │       ├── company.py
-│   │       ├── department.py
-│   │       ├── team.py
-│   │       ├── person.py
-│   │       ├── objective.py
-│   │       ├── kpi.py
-│   │       └── kr.py
-│   ├── services/
-│   │   └── api.py
-│   └── main.py
+│ ├── model/
+│ │ ├── database/
+│ │ │ └── database.py
+│ │ └── entities/
+│ │ ├── init.py
+│ │ ├── actionInterface.py
+│ │ ├── company.py
+│ │ ├── data.py
+│ │ ├── dataInterface.py
+│ │ ├── department.py
+│ │ ├── director.py
+│ │ ├── entity.py
+│ │ ├── group.py
+│ │ ├── kpi.py
+│ │ ├── kr.py
+│ │ ├── manager.py
+│ │ ├── objective.py
+│ │ ├── person.py
+│ │ ├── rpe.py
+│ │ ├── team.py
+│ │ └── userAuth.py
+│ ├── services/
+│ │ ├── BaseModels/
+│ │ ├── init.py
+│ │ └── api.py
+│ └── main.py
 ├── frontend/
-│   └── src/
-│       ├── components/
-│       ├── pages/
-│       └── App.js
+│ └── src/
+│ ├── components/
+│ ├── pages/
+│ └── App.js
 ├── README.md
 └── requirements.txt
 ```
@@ -184,3 +196,4 @@ Esse ciclo assegura uma comunicação consistente entre as camadas, com base em 
 | **Thales Eduardo Dias de Souza**    | 2024022647 | 
 
 ---
+
