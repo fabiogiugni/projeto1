@@ -34,6 +34,5 @@ class Department(Group):
         return self.__companyID
 
     @directorID.setter
-    def directorID(self, directorID : str, db: 'Database'):
+    def directorID(self, directorID : str):
         self.__directorID = directorID
-        db.updateItem(self)
