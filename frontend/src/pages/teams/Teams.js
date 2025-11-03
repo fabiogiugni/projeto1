@@ -29,7 +29,7 @@ export default function Teams() {
         />
 
         <Select
-          title="Time"
+          title="Equipe"
           options={departmentOptions}
           onChange={setSelectedTeam}
         />
