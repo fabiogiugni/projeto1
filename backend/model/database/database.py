@@ -150,7 +150,7 @@ class Database:
             self.__db.close()
             print("LOG: Conexão com o banco de dados fechada.")
 
-    
+
     def deleteItemByObject(self, item: Entity) -> Optional[int]:
         """
         Remove um item do banco de dados.
@@ -358,23 +358,11 @@ class Database:
         cursor = self.__db.cursor()
         
         try:
-            if data_type in ["KPI", "KR"]:
-                # KPI/KR está ligado a Objective
-                cursor.execute("DELETE FROM objective_kpis WHERE kpiID = ?", (data_id,))
-
-            elif data_type == "Objective":
-                # Objective está ligado a RPEs
-                cursor.execute("DELETE FROM rpe_objectives WHERE objectiveID = ?", (data_id,))
-                # Objective está ligado a KPIs/KRs (caso não use CASCADE)
-                cursor.execute("DELETE FROM objective_kpis WHERE objectiveID = ?", (data_id,))
-
-            elif data_type == "RPE":
+            if data_type == "RPE":
                 # RPE está ligado a Company, Department e Team
                 cursor.execute("DELETE FROM company_rpes WHERE rpeID = ?", (data_id,))
                 cursor.execute("DELETE FROM department_rpes WHERE rpeID = ?", (data_id,))
                 cursor.execute("DELETE FROM team_rpes WHERE rpeID = ?", (data_id,))
-                # RPE está ligado a Objectives (caso não use CASCADE)
-                cursor.execute("DELETE FROM rpe_objectives WHERE rpeID = ?", (data_id,))
             
             # Confirma as exclusões das relações
             self.__db.commit()
@@ -726,30 +714,35 @@ class Database:
         """
         if not row:
             return None
-            
-        params = dict(row)
+        
+        columns = [col[0] for col in cursor.description]
+        params = dict(zip(columns, row))
         personID = params["id"]
         role = params.get("role")
         
         # Hidratação: Busca IDs de responsabilidade se for Manager ou Director
-        if role == "Manager" or role == "Director":
+        responsibleIds = []
+        if role in ("Manager", "Director"):
             cursor.execute("SELECT responsibleID FROM person_responsibles WHERE personID = ?", (personID,))
             id_rows = cursor.fetchall()
-            params["responsibleIds"] = [r["responsibleID"] for r in id_rows]
-            
+            responsibleIds = [r["responsibleID"] for r in id_rows]
+        
+        # Remove kwargs que não existem nos construtores
+        params.pop("role", None)
+        if "responsibleIds" in params:
+            params.pop("responsibleIds")
+
         # Factory: Constrói o objeto da classe correta
         try:
             if role == "Manager":
-                return Manager(**params)
+                obj = Manager(responsibleIds=responsibleIds, **params)
             elif role == "Director":
-                return Director(**params)
+                obj = Director(responsibleIds=responsibleIds, **params)
             else:
-                # Limpa o kwarg se a classe Person não o esperar
-                if "responsibleIds" in params:
-                    del params["responsibleIds"]
-                return Person(**params)
+                obj = Person(**params)
+            return obj
         except TypeError as e:
-            print(f"[ERRO] Falha ao construir objeto Person/Manager. Verifique os construtores.")
+            print(f"[ERRO] Falha ao construir objeto Person/Manager/Director. Verifique os construtores.")
             print(f"   Erro: {e}")
             print(f"   Parâmetros: {params}")
             return None
@@ -950,33 +943,34 @@ class Database:
             print(f"   Parâmetros: {params}")
             return None
 
-    def getRPEByID(self, rpeID: str) -> Optional[RPE]:
-        """Retorna um objeto RPE pelo ID, hidratando 'objectivesIds' pela tabela de junção."""
+    def getRPEByID(self, rpeID: str) -> RPE | None:
+        """
+        Retorna um objeto RPE pelo ID, com hierarquia completa
+        (Objectives -> KPIs/KRs) usando os métodos já existentes.
+        """
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM rpe WHERE id = ?", (rpeID,))
             row = cursor.fetchone()
-            if not row: 
+
+            if not row:
+                print(f"[AVISO] Nenhum RPE encontrado com ID {rpeID}.")
                 return None
-            
-            # CORREÇÃO: Criar dicionário manualmente usando description
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            
-            # Hidratação CORRETA: 'objectivesIds' (N-para-N)
-            cursor.execute("SELECT objectiveID FROM rpe_objectives WHERE rpeID = ?", (rpeID,))
-            
-            # CORREÇÃO: Usar índice 0 em vez de chave de dicionário
-            params["objectivesIds"] = [r[0] for r in cursor.fetchall()]
-            
-            return RPE(**params)
-            
+
+            # Cria o RPE com os dados mínimos
+            rpe = RPE(
+                description=row["description"],
+                responsibleID=row["responsibleID"],
+                date=row["date"],
+                id=row["id"]
+            )
+
+            return rpe
+
         except sqlite3.Error as e:
-            print(f"Erro ao buscar RPE (ID: {rpeID}): {e}")
+            print(f"[ERRO] Falha ao buscar RPE (ID: {rpeID}): {e}")
             return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir RPE: {e}")
-            return None
+
 
     def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
         """
@@ -1011,7 +1005,6 @@ class Database:
         except Exception as e:
             print(f"[ERRO] Erro inesperado ao construir Objective (ID: {objectiveID}): {e}")
             return None
-
 
     def getKPIByID(self, kpiID: str) -> Optional[KPI]:
         try:
@@ -1068,7 +1061,7 @@ class Database:
             print(f"Erro ao buscar RPEs por DepartmentID {departmentID}: {e}")
             return []
 
-    def getRPEsByCompanyID(self, companyID: str) -> list[RPE]:
+    def getRPEByCompanyID(self, companyID: str) -> list[RPE]:
         """
         Retorna uma lista de objetos RPE associados a um companyID.
         """
@@ -1086,25 +1079,18 @@ class Database:
             print(f"Erro ao buscar RPEs por CompanyID {companyID}: {e}")
             return []
 
-    def getRPEsByObjectiveID(self, objectiveID: str) -> list[RPE]:
+    def getRPEByObjectiveID(self, objectiveID: str) -> Optional[RPE]:
         """
-        Retorna uma lista de RPEs associados a um objectiveID.
+        Retorna RPE associado a um objectiveID.
         """
         if not objectiveID:
-            return []
+            return None
         try:
-            cursor = self.__db.cursor()
-            # 1. Busca IDs de RPE da tabela de junção
-            cursor.execute("SELECT rpeID FROM rpe_objectives WHERE objectiveID = ?", (objectiveID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            # 2. Reutiliza getRPEByID para construir os objetos
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
+            obj = self.getObjectiveByID(objectiveID)
+            return self.getKPIByID(obj.rpeID)
         except sqlite3.Error as e:
             print(f"Erro ao buscar RPEs por ObjectiveID {objectiveID}: {e}")
-            return []
+            return None
     
     def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
         """
@@ -1127,34 +1113,13 @@ class Database:
             print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
             return []  
 
-    def getRPEsByKpiID(self, kpiID: str) -> list[RPE]:
+    def getRPEByKpiID(self, kpiID: str) -> Optional[RPE]:
         """
-        Retorna uma lista de RPEs associados a um kpiID (ou krID), 
-        fazendo a busca RPE -> Objective -> KPI.
+        Retorna RPE associado a um kpiID (ou krID)
         """
-        if not kpiID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            
-            # 1. Busca IDs de RPE usando JOIN de 2 tabelas de junção
-            # (Encontra RPEs que têm Objetivos que, por sua vez, têm o KPI)
-            query = """
-                SELECT DISTINCT T1.rpeID 
-                FROM rpe_objectives AS T1
-                JOIN objective_kpis AS T2 ON T1.objectiveID = T2.objectiveID
-                WHERE T2.kpiID = ?
-            """
-            cursor.execute(query, (kpiID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-
-            # 2. Reutiliza getRPEByID para construir os objetos
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por KpiID {kpiID}: {e}")
-            return []
+        kpi = self.getKPIByID(kpiID)
+        return self.getRPEByObjectiveID(kpi.objectiveID)
+        
         
     def getRPEsByEntity(self, entity_type: str, entity_id: str) -> list[RPE]:
         """
@@ -1366,45 +1331,39 @@ class Database:
     def isObjectiveTeamOrDepartmentLevel(self, objectiveID: str) -> bool:
         """
         Verifica se um Objetivo está associado a pelo menos um Team OU a pelo menos um Department.
-        
-        Isso é feito verificando o caminho Objective -> RPE -> (Team OR Department).
-        Retorna True se houver associação com Team ou Department, False caso contrário.
+
+        Agora que não há mais a tabela rpe_objectives, usamos:
+        Objective -> RPE -> (Team OR Department)
         """
         try:
             cursor = self.__db.cursor()
-            
-            # Consulta SQL Otimizada: 
-            # Verifica se EXISTE algum RPE que está ligado ao objectiveID E
-            # que também está ligado a um team OU a um department.
-            
+
+            # Busca o RPE associado ao Objective
+            cursor.execute("SELECT rpeID FROM objective WHERE id = ?", (objectiveID,))
+            row = cursor.fetchone()
+            if not row or not row["rpeID"]:
+                return False  # Objetivo não tem RPE associado
+
+            rpeID = row["rpeID"]
+
+            # Verifica se existe associação com Team ou Department
             query = """
-                SELECT 1 FROM rpe_objectives AS RO
-                WHERE RO.objectiveID = ?
-                  AND (
-                    -- Verifica se o RPE está ligado a um TEAM
-                    EXISTS (
-                        SELECT 1 FROM team_rpes AS TR 
-                        WHERE TR.rpeID = RO.rpeID
-                    )
-                    OR
-                    -- Verifica se o RPE está ligado a um DEPARTMENT
-                    EXISTS (
-                        SELECT 1 FROM department_rpes AS DR 
-                        WHERE DR.rpeID = RO.rpeID
-                    )
-                  )
+                SELECT 1
+                FROM team_rpes
+                WHERE rpeID = ?
+                UNION
+                SELECT 1
+                FROM department_rpes
+                WHERE rpeID = ?
                 LIMIT 1;
             """
-            
-            cursor.execute(query, (objectiveID,))
-            
-            # Se fetchone() retornar uma linha, significa que existe pelo menos uma associação.
+            cursor.execute(query, (rpeID, rpeID))
             return cursor.fetchone() is not None
 
         except sqlite3.Error as e:
             print(f"[ERRO] Falha ao verificar nível do Objetivo {objectiveID}: {e}")
-            # Em caso de erro, assumimos que a verificação falhou.
             return False
+
     
     def isRPETeamOrDepartmentLevel(self, rpeID: str) -> bool:
         """

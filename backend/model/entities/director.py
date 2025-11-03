@@ -37,7 +37,7 @@ class Director(Person):
             db.addRpeToDepartment(person.departmentID,rpe.id)
         elif groupLevel == "Team":
             db.addItem(rpe)
-            db.addRpeToTeam(person.departmentID,rpe.id)
+            db.addRpeToTeam(person.teamID,rpe.id)
         else:
             print("Group level inválido.")
     
@@ -54,28 +54,28 @@ class Director(Person):
     def changeDepartmentDirector(self, departmentID : str, personID: str, db: 'Database'):
         db.changeDepartmentDirector(departmentID, personID)
     
-    def createObjective(self, obj: Objective, rpeID: str, db: 'Database'):
+    def createObjective(self, obj: Objective, db: 'Database'):
         db.addItem(obj)
-        db.addObjectiveToRpe(obj.id,rpeID)
+        db.assignObjectiveToRPE(obj.rpeID, obj.id)
 
     def deleteObjective(self, obj: Objective, db: 'Database'):
         db.cleanupDataRelationships(obj.id, obj.__class__.__name__)
-        db.deleteItemByObject(obj)
+        db.deleteItemByObject(obj)     
     
-    def createKPI(self, kpi: KPI, objectiveID: str, db: 'Database'):
+    def createKPI(self, kpi: KPI, db: 'Database'):
         db.addItem(kpi)
-        db.addKpiToObjective(objectiveID,kpi.id)
+        db.assignKPIToObjective(kpi.objectiveID, kpi.id)
 
     def deleteKPI(self, kpi: KPI, db: 'Database'):
-        db.cleanupDataRelationships(kpi.id)
+        db.cleanupDataRelationships(kpi.id, kpi.__class__.__name__)
         db.deleteItemByObject(kpi)
 
-    def createKR(self, kr: KR, objectiveID: str, db: 'Database'):
+    def createKR(self, kr: KR, db: 'Database'):
         db.addItem(kr)
-        db.addKpiToObjective(objectiveID,kr.id)
+        db.assignKPIToObjective(kr.objectiveID,kr.id)
     
-    def deleteKR(self, kr:KR, db: 'Database'):
-        db.cleanupDataRelationships(kr.id)
+    def deleteKR(self, kr: KR, objectiveID: str, db: 'Database'):
+        db.cleanupDataRelationships(kr.id, kr.__class__.__name__)
         db.deleteItemByObject(kr)
 
     def collectIndicator(self, kpi: KPI, db: 'Database'):

@@ -1,4 +1,5 @@
 from backend.model.database.database import Database
+
 from backend.model.entities.company import Company
 from backend.model.entities.department import Department
 from backend.model.entities.team import Team
@@ -10,15 +11,16 @@ from backend.model.entities.objective import Objective
 from backend.model.entities.kpi import KPI
 from backend.model.entities.kr import KR
 
+
 def main():
-    print("Inicializando banco...")
+    print("=== Iniciando Banco ===")
     db = Database()
 
-    # Empresa
+    # --- COMPANY ---
     company = Company(name="TechCorp", cnpj="00.111.222/0001-55")
     db.addItem(company)
 
-    # Diretor
+    # --- DIRECTOR ---
     director = Director(
         name="Ana Silva",
         cpf="12345678900",
@@ -30,16 +32,15 @@ def main():
         responsibleIds=[]
     )
     db.addItem(director)
+    db.addDirectorToCompany(company.id, director.id)
 
-    # Departamento
-    dept = Department(
-        name="Pesquisa e Desenvolvimento",
-        companyID=company.id,
-        directorID=director.id
-    )
+    # --- DEPARTMENT ---
+    dept = Department(name="Pesquisa e Desenvolvimento", directorID=director.id, companyID=company.id)
     db.addItem(dept)
+    company.addDepartment(dept.id, db)
+    db.assignPersonToDepartment(director.id, director.departmentID)
 
-    # Gerente
+    # --- MANAGER ---
     manager = Manager(
         name="Carlos Pereira",
         cpf="98765432100",
@@ -52,15 +53,13 @@ def main():
     )
     db.addItem(manager)
 
-    # Time
-    team = Team(
-        name="Time Alpha",
-        departmentID=dept.id,
-        managerID=manager.id
-    )
+    # --- TEAM ---
+    team = Team(name="Time Alpha", managerID=manager.id, departmentID=dept.id)
     db.addItem(team)
+    dept.addTeam(team.id, db)
+    db.updateItem(manager)
 
-    # Funcionário
+    # --- EMPLOYEE ---
     emp = Person(
         name="João Oliveira",
         cpf="11122233344",
@@ -71,54 +70,43 @@ def main():
         password="senha"
     )
     db.addItem(emp)
+    team.addEmployee(emp.id, db)
 
-    # RPE
-    rpe = RPE(
-        description="Meta trimestral do time",
-        responsibleID=manager.id,
-        date="2025-01-10"
-    )
+    print("\n=== Testando Roles ===")
+
+    print("\n[Director] criando RPE...")
+    rpe = RPE(description="Meta do trimestre", responsibleID=director.id, date="2025-01-10")
     db.addItem(rpe)
+    team.addRPE(rpe.id, db)
 
-    # Objetivo (agora recebe rpeID diretamente)
-    obj = Objective(
-        description="Melhorar performance",
-        responsibleID=manager.id,
-        date="2025-02-01",
-        rpeID=rpe.id
-    )
-    db.addItem(obj)
+    print("[Manager] criando Objective...")
+    obj = Objective(description="Melhorar processo", responsibleID=manager.id, date="2025-02-01", rpeID=rpe.id)
+    manager.createObjective(obj, db)
 
-    # KPI (agora recebe objectiveID diretamente)
-    kpi = KPI(
-        description="Velocidade média de entrega",
-        responsibleID=manager.id,
-        date="2025-03-01",
-        objectiveID=obj.id
-    )
-    db.addItem(kpi)
-    kpi.addData(42.5, db)
+    print("[Manager] criando KPI...")
+    kpi = KPI(description="Velocidade média", responsibleID=manager.id, date="2025-03-01", objectiveID=obj.id)
+    manager.createKPI(kpi, db)
+    kpi.addData(40.0, db)
+    kpi.addData(50.2, db)
 
-    # KR (mesma lógica)
-    kr = KR(
-        description="Entregar 90% das tarefas planejadas",
-        responsibleID=manager.id,
-        date="2025-03-01",
-        objectiveID=obj.id,
-        goal=90.0,
-        id=None,
-        data=[]
-    )
-    # KR TAMBÉM É SALVO NA TABELA KPI
-    kr._objectiveID = obj.id
-    db.addItem(kr)
+    print("[Manager] criando KR...")
+    kr = KR(description="Entrega de metas", responsibleID=manager.id, date="2025-03-05", objectiveID=obj.id, goal=90.0)
+    manager.createKR(kr, db)
     kr.addData(75.0, db)
 
-    print("\n--- Estrutura Completa ---")
-    estrutura = rpe.getData(db)
-    print(estrutura)
+    print("\n[Employee] listando RPEs do time...")
+    rpes_emp = emp.getRPEs("Time Alpha", db)
+    for r in rpes_emp:
+        print(" -", r.description)
 
-    print("\nFim do teste.")
+    print("\n[Manager] coletando KPI (com permissão)...")
+    manager.collectIndicator(kpi, db)
+
+    print("\n=== Estrutura Completa do RPE ===")
+    print(rpe.getData(db))
+
+    print("\n=== Fim do Teste ===")
+
 
 if __name__ == "__main__":
     main()
