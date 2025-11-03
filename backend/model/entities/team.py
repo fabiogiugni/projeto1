@@ -36,5 +36,4 @@ class Team(Group):
     @managerID.setter
     def managerID(self, managerID : str, db: 'Database'):
         self.__managerID = managerID
-        
-    
+        db.updateItem(self)

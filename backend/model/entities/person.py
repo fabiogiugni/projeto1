@@ -59,18 +59,20 @@ class Person(Entity):
     #Fazer todas operações sobre dado na própria classe, apenas busca e atualiza coisas no bd
 
     @role.setter
-    def role(self, role: str):
+    def role(self, role: str, db: 'Database'):
         """Setter para o cargo"""
         if not isinstance(role, str):
             raise TypeError("O nome deve ser uma string.")
         self._role = role
+        db.updateItem(self)
 
     @teamID.setter
-    def teamID(self, teamID: str):
+    def teamID(self, teamID: str, db: 'Database'):
         """Setter para o teamID"""
         if not isinstance(teamID, str):
             raise TypeError("O nome deve ser uma string.")
         self._teamID = teamID
+        db.updateItem(self)
 
     def verifyPassword(self, password :str):
         if password == self.__password:
