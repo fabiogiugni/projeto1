@@ -20,7 +20,7 @@ export default function Employees() {
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
-      <h1>Employees</h1>
+      <h1>Funcionários</h1>
 
       <div className={styles.inputContainer}>
         <Input
