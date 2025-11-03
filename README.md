@@ -24,7 +24,7 @@ O sistema tem como objetivo fornecer uma plataforma integrada para **gerenciamen
 O sistema permite o gerenciamento hierárquico de empresas, departamentos, equipes e funcionários, bem como o registro e acompanhamento de **indicadores de desempenho (KPIs e KRs)**.  
 A aplicação é composta por duas camadas principais:
 
-1. **Backend (Python / FastAPI / SQLite)** — responsável pela lógica de negócio, persistência e autenticação.  
+1. **Backend (Python / FastAPI / SQLite)** — responsável pela lógica de negócio, persistência e autenticação.
 2. **Frontend (React.js)** — interface web interativa e responsiva que se comunica com a API.
 
 O modelo de dados segue uma estrutura orientada a objetos, com herança, encapsulamento e polimorfismo, permitindo flexibilidade e reutilização de código.
@@ -39,7 +39,7 @@ O sistema adota uma arquitetura **cliente-servidor** com camadas bem definidas:
 
 Frontend (React)  →  API REST (FastAPI)  →  Database (SQLite)
 
-````
+```
 
 Cada entidade (como `Company`, `Department`, `Team`, `Person`, `RPE`, `Objective`, `KPI`, `KR`) é representada por uma classe no backend, armazenada no banco de dados com integridade referencial.
 
@@ -59,6 +59,7 @@ Cada entidade (como `Company`, `Department`, `Team`, `Person`, `RPE`, `Objective
 ## 🧰 Tecnologias Utilizadas
 
 ### Backend
+
 - **Python 3.11+**
 - **FastAPI** — framework para construção da API REST
 - **SQLite** — banco de dados leve e relacional
@@ -68,11 +69,13 @@ Cada entidade (como `Company`, `Department`, `Team`, `Person`, `RPE`, `Objective
 - **ABC** — classes abstratas para interfaces e contratos
 
 ### Frontend
+
 - **React.js**
 - **React Router Dom** — roteamento de páginas
 - **CSS Modules / Figma** — design modular e responsivo
 
 ### Ferramentas de Apoio
+
 - **Git / GitHub** — controle de versão
 - **LucidChart** — diagramas UML
 - **Figma** — prototipagem de interface
@@ -82,10 +85,11 @@ Cada entidade (como `Company`, `Department`, `Team`, `Person`, `RPE`, `Objective
 ## 🚀 Instalação e Execução
 
 ### 1️⃣ Clonar o repositório
+
 ```bash
 git clone https://github.com/fabiogiugni/projeto1.git
 cd projeto1
-````
+```
 
 ### 2️⃣ Criar ambiente virtual (opcional, mas recomendado)
 
@@ -115,8 +119,8 @@ O backend será iniciado em:
 
 ```bash
 cd frontend
-yarn install
-yarn start
+npm install
+npm start
 ```
 
 O frontend será iniciado em:
@@ -180,20 +184,19 @@ Esse ciclo assegura uma comunicação consistente entre as camadas, com base em 
 
 ## 🧩 Resultados Obtidos
 
-* Integração completa entre frontend, backend e banco de dados.
-* Aplicação prática dos conceitos de **POO** (herança, polimorfismo e encapsulamento).
-* Sistema funcional com controle hierárquico e gestão de métricas empresariais.
-* Base sólida para futuras expansões (gamificação, dashboards, SCRUM).
+- Integração completa entre frontend, backend e banco de dados.
+- Aplicação prática dos conceitos de **POO** (herança, polimorfismo e encapsulamento).
+- Sistema funcional com controle hierárquico e gestão de métricas empresariais.
+- Base sólida para futuras expansões (gamificação, dashboards, SCRUM).
 
 ---
 
 ## 👨‍💻 Autores
 
-| Nome                                | Matrícula  | 
-| ----------------------------------- | ---------- | 
-| **Fábio Braga Giugni**              | 2024022779 | 
-| **Samuel Felipe Verçosa Gonçalves** | 2022055475 | 
-| **Thales Eduardo Dias de Souza**    | 2024022647 | 
+| Nome                                | Matrícula  |
+| ----------------------------------- | ---------- |
+| **Fábio Braga Giugni**              | 2024022779 |
+| **Samuel Felipe Verçosa Gonçalves** | 2022055475 |
+| **Thales Eduardo Dias de Souza**    | 2024022647 |
 
 ---
-
