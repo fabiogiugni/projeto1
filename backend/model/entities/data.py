@@ -27,20 +27,18 @@ class Data(Entity):
         return self._date
     
     @description.setter
-    def description(self, description: str, db: 'Database'):
+    def description(self, description: str):
         """Setter para description"""
         if not isinstance(description, str):
             raise TypeError("O nome deve ser uma string.")
         self._description = description
-        db.updateItem(self)
 
     @responsibleID.setter
-    def responsibleID(self, responsibleID: str, db: 'Database'):
+    def responsibleID(self, responsibleID: str):
         """Setter para o responsibleID"""
         if not isinstance(responsibleID, str):
             raise TypeError("O nome deve ser uma string.")
         self._responsibleID = responsibleID
-        db.updateItem(self)
 
     def getData(self, db: 'Database') -> Dict[str, Any]:
         """Implementação base do getData da interface."""

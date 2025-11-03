@@ -54,8 +54,8 @@ class Database:
                 name TEXT NOT NULL,
                 cpf TEXT UNIQUE,
                 companyID TEXT,
-                departmentID TEXT,
-                teamID TEXT,
+                departmentID TEXT NULL,
+                teamID TEXT NULL,
                 role TEXT,
                 email TEXT,
                 password TEXT,
@@ -76,7 +76,9 @@ class Database:
                 id TEXT PRIMARY KEY,
                 description TEXT,
                 responsibleID TEXT,
+                rpeID TEXT,
                 date TEXT,
+                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE,
                 FOREIGN KEY(responsibleID) REFERENCES person(id) ON DELETE SET NULL
             );
 
@@ -84,21 +86,15 @@ class Database:
                 id TEXT PRIMARY KEY,
                 description TEXT,
                 responsibleID TEXT,
+                objectiveID TEXT,
                 date TEXT,
                 data TEXT,
                 goal FLOAT,
+                FOREIGN KEY(objectiveID) REFERENCES objective(id) ON DELETE CASCADE,
                 FOREIGN KEY(responsibleID) REFERENCES person(id) ON DELETE SET NULL
             );
 
             --- TABELAS DE JUNÇÃO (Muitos-para-Muitos) ---
-
-            CREATE TABLE IF NOT EXISTS team_members (
-                teamID TEXT NOT NULL,
-                personID TEXT NOT NULL,
-                PRIMARY KEY (teamID, personID),
-                FOREIGN KEY(teamID) REFERENCES team(id) ON DELETE CASCADE,
-                FOREIGN KEY(personID) REFERENCES person(id) ON DELETE CASCADE
-            );
 
             CREATE TABLE IF NOT EXISTS person_responsibles (
                 personID TEXT NOT NULL,
@@ -140,21 +136,6 @@ class Database:
                 FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE
             );
             
-            CREATE TABLE IF NOT EXISTS rpe_objectives (
-                rpeID TEXT NOT NULL,
-                objectiveID TEXT NOT NULL,
-                PRIMARY KEY (rpeID, objectiveID),
-                FOREIGN KEY(rpeID) REFERENCES rpe(id) ON DELETE CASCADE,
-                FOREIGN KEY(objectiveID) REFERENCES objective(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS objective_kpis (
-                objectiveID TEXT NOT NULL,
-                kpiID TEXT NOT NULL,
-                PRIMARY KEY (objectiveID, kpiID),
-                FOREIGN KEY(objectiveID) REFERENCES objective(id) ON DELETE CASCADE,
-                FOREIGN KEY(kpiID) REFERENCES kpi(id) ON DELETE CASCADE
-            );
             ''')
         self.__saveData()
         print("LOG: Banco de dados inicializado com schema relacional.")
@@ -211,51 +192,27 @@ class Database:
             print(f"Erro ao deletar item de '{tableName}' (ROLLBACK executado): {e}")
             return None
     
-    def deleteItembyID(self, id: str) -> bool:
+    def cleanupDataRelationships(self, data_id: str, data_type: str) -> None:
         """
-        Tenta deletar um item (entidade) do banco de dados usando seu ID.
-        
-        A deleção se baseia nas regras de integridade referencial (FOREIGN KEY ON DELETE CASCADE)
-        para limpar as tabelas de junção e as entidades dependentes.
-        
-        Retorna True se pelo menos um item for deletado, False caso contrário.
+        Remove referências de um objeto Data (RPE, Objective, KPI, KR)
+        das tabelas de junção ANTES de sua exclusão.
         """
-        
-        # Lista de todas as tabelas que usam 'id' como PRIMARY KEY.
-        # As tabelas de junção NÃO são incluídas, pois a exclusão é tratada
-        # pelo ON DELETE CASCADE das tabelas principais.
-        tables_to_check = [
-            "company", "department", "team", 
-            "person", "rpe", "objective", "kpi"
-        ]
-        
-        total_deleted_rows = 0
+        cursor = self.__db.cursor()
         
         try:
-            with self.__db: # Garante a atomicidade (commit/rollback)
-                
-                for table in tables_to_check:
-                    query = f"DELETE FROM {table} WHERE id = ?"
-                    cursor = self.__db.execute(query, (id,))
-                    
-                    if cursor.rowcount > 0:
-                        # Se rowcount > 0, o item foi encontrado e deletado nessa tabela.
-                        # O CASCADE do SQLite cuidará das tabelas dependentes (junção e outras).
-                        print(f"Registro (ID: {id}) deletado com sucesso da tabela '{table}'.")
-                        total_deleted_rows += cursor.rowcount
-                        break # O ID só pode pertencer a uma tabela principal, então paramos.
-                        
-            if total_deleted_rows > 0:
-                return True
-            else:
-                print(f"[AVISO] Nenhum item encontrado com o ID: {id} em nenhuma tabela principal.")
-                return False
-
+            # 1. Limpeza para RPE:
+            # RPE está ligado a Company, Department e Team (tabelas de junção antigas que persistem)
+            if data_type == "RPE":                
+                cursor.execute("DELETE FROM company_rpes WHERE rpeID = ?", (data_id,))
+                cursor.execute("DELETE FROM department_rpes WHERE rpeID = ?", (data_id,))
+                cursor.execute("DELETE FROM team_rpes WHERE rpeID = ?", (data_id,))
+            self.__db.commit()
+            
         except sqlite3.Error as e:
-            print(f"[ERRO] Falha ao deletar item com ID {id}: {e}")
-            # Em caso de erro, o 'with self.__db:' já faz o rollback
-            return False
-    
+            print(f"[ERRO] Falha ao limpar relações do {data_type} (ID: {data_id}): {e}")
+            self.__db.rollback() 
+            raise
+
     def addItem(self, item: Entity) -> Optional[int]:
         """
         Adiciona um novo item no banco de dados.
@@ -281,10 +238,21 @@ class Database:
                         params = (item.id, item.name, item.cpf, 
                                 item.companyID, item.departmentID, item.teamID,
                                 getattr(item, 'role', None), item.email, item.password)
-                        print("chegou")
-                        self.__db.execute(query, params)
-                        print("chegou")
                         print(f"Person {item.id} inserida com sucesso.")
+                        # EXECUTA A QUERY PRINCIPAL AQUI
+                        self.__db.execute(query, params)
+                        
+                        # LÓGICA DE RELACIONAMENTO BASE PARA PERSON
+                        # 1. Atribui a Pessoa à Empresa
+                        self.assignPersonToCompany(item.id, item.companyID)
+                        
+                        # 2. Se a pessoa for um Manager, atribui ela ao Team
+                        if isinstance(item, Manager):
+                            self.changeTeamManager(item.teamID, item.id)
+                        
+                        # 3. Se a pessoa for um Director, atribui ela ao Department
+                        if isinstance(item, Director):
+                            self.changeDepartmentDirector(item.departmentID, item.id)
                     else:
                         print(f"[AVISO] Person {item.id} já existe, ignorando inserção.")
 
@@ -294,6 +262,13 @@ class Database:
                                id, name, cnpj
                                ) VALUES (?, ?, ?)"""
                     params = (item.id, item.name, item.cnpj)
+                    # EXECUTA A QUERY PRINCIPAL AQUI
+                    self.__db.execute(query, params)
+                    
+                    # LÓGICA DE RELACIONAMENTO BASE PARA COMPANY
+                    # Adiciona os diretores à tabela de junção
+                    for director_id in item.directorsIDs:
+                        self.addDirectorToCompany(item.id, director_id)
 
                 # --- Bloco Department ---
                 elif isinstance(item, Department):
@@ -301,6 +276,12 @@ class Database:
                                id, name, companyID, directorID
                                ) VALUES (?, ?, ?, ?)"""
                     params = (item.id, item.name, item.companyID, item.directorID)
+                    # EXECUTA A QUERY PRINCIPAL AQUI
+                    self.__db.execute(query, params)
+                    
+                    # LÓGICA DE RELACIONAMENTO BASE PARA DEPARTMENT
+                    # 1. Adiciona o departamento à lista de departamentos da empresa
+                    self.assignDepartmentToCompany(item.id, item.companyID)
 
                 # --- Bloco Team ---
                 elif isinstance(item, Team):
@@ -308,6 +289,12 @@ class Database:
                                id, name, departmentID, managerID
                                ) VALUES (?, ?, ?, ?)"""
                     params = (item.id, item.name, item.departmentID, item.managerID)
+                    # EXECUTA A QUERY PRINCIPAL AQUI
+                    self.__db.execute(query, params)
+                    
+                    # LÓGICA DE RELACIONAMENTO BASE PARA TEAM
+                    # 1. Adiciona o time à lista de times do departamento
+                    self.assignTeamToDepartment(item.id, item.departmentID)
 
                 # --- Bloco RPE ---
                 elif isinstance(item, RPE):
@@ -315,13 +302,18 @@ class Database:
                                id, description, responsibleID, date
                                ) VALUES (?, ?, ?, ?)"""
                     params = (item.id, item.description, item.responsibleID, item.date)
+                    self.__db.execute(query, params)
+                    self.assignResponsibleToRPE(item.responsibleID, item.id)
 
                 # --- Bloco Objective ---
                 elif isinstance(item, Objective):
                     query = """INSERT INTO objective (
-                               id, description, responsibleID, date
-                               ) VALUES (?, ?, ?, ?)"""
-                    params = (item.id, item.description, item.responsibleID, item.date)
+                               id, description, responsibleID, rpeID, date
+                               ) VALUES (?, ?, ?, ?, ?)"""
+                    params = (item.id, item.description, item.responsibleID, item.rpeID, item.date)
+                    self.__db.execute(query, params)
+                    self.assignResponsibleToObjective(item.responsibleID, item.id)
+                    self.assignObjectiveToRPE(item.rpeID, item.id)
 
                 # --- Bloco KPI (usado para KPI e KR, com 'goal' e 'data' opcionais) ---
                 elif isinstance(item, KPI):
@@ -332,18 +324,19 @@ class Database:
                     goal = getattr(item, 'goal', None)
                     
                     query = """INSERT INTO kpi (
-                               id, description, responsibleID, date, data, goal
-                               ) VALUES (?, ?, ?, ?, ?, ?)"""
-                    params = (item.id, item.description, item.responsibleID, item.date, 
+                               id, description, responsibleID, objectiveID, date, data, goal
+                               ) VALUES (?, ?, ?, ?, ?, ?, ?)"""
+                    params = (item.id, item.description, item.responsibleID, item.objectiveID, item.date, 
                               dataText, goal)
+                    self.__db.execute(query, params)
+                    self.assignResponsibleToKPI(item.responsibleID, item.id)
+                    self.assignKPIToObjective(item.objectiveID, item.id)
 
                 else:
                     print(f"[ERRO] Tipo de item desconhecido para inserção: {entity_name}")
                     return 1
 
-                # Executa a inserção
-                self.__db.execute(query, params)
-                
+                # Executa a inserção                
                 print(f"{entity_name} {item.id} inserido com sucesso.")
 
             # Retorno de sucesso
@@ -395,10 +388,7 @@ class Database:
     
     def cleanupPersonRelationships(self, person_id: str) -> None:
         """
-        Remove todas as referências de uma Pessoa nas tabelas de junção e
-        nos campos de Foreign Key (diretor, gerente, responsável) antes de sua exclusão.
-        
-        :param person_id: O ID da pessoa a ser excluída.
+        (Versão 1-para-N: remove a referência a 'team_members')
         """
         cursor = self.__db.cursor()
         
@@ -406,37 +396,36 @@ class Database:
             # --- 1. LIMPAR CARGOS DE LIDERANÇA (SET NULL) ---
             
             # 1a. Remove a pessoa como DIRETOR de um Departamento
-            # Garante que o campo FK na tabela 'department' seja nulo.
             cursor.execute("UPDATE department SET directorID = NULL WHERE directorID = ?", (person_id,))
             
             # 1b. Remove a pessoa como GERENTE de um Time
-            # Garante que o campo FK na tabela 'team' seja nulo.
             cursor.execute("UPDATE team SET managerID = NULL WHERE managerID = ?", (person_id,))
 
             # --- 2. LIMPAR RESPONSABILIDADE POR DATA (SET NULL) ---
-            # Todos os objetos Data (RPE, Objective, KPI, KR) têm responsibleID.
-            
-            # 2a. RPEs
             cursor.execute("UPDATE rpe SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
-            
-            # 2b. Objectives
             cursor.execute("UPDATE objective SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
-
-            # 2c. KPIs (Inclui KRs, se usarem a mesma tabela)
             cursor.execute("UPDATE kpi SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
             
             # --- 3. REMOVER DE TABELAS DE JUNÇÃO ---
             
-            # 3a. Remove a pessoa como MEMBRO de um Time
-            # Assumindo uma tabela de junção 'team_members' ou 'team_person'.
-            # A cláusula IGNORE é usada para evitar falhas caso a tabela não exista com esse nome.
+            # 3a. Remove a pessoa como MEMBRO de um Time (NÃO É MAIS NECESSÁRIO)
+            # O campo 'person.teamID' será tratado pelo 'ON DELETE SET NULL'
+            # do 'team(id)', caso o time seja deletado. Se a pessoa for deletada,
+            # não há problema, pois ninguém mais aponta para ela.
+            
+            # 3b. Remove a pessoa das listas de responsáveis (person_responsibles)
+            # (Assumindo que esta tabela exista, o CASCADE deve cuidar disso, 
+            # mas podemos forçar para garantir)
             try:
-                cursor.execute("DELETE FROM team_members WHERE personID = ?", (person_id,))
+                cursor.execute("DELETE FROM person_responsibles WHERE personID = ? OR responsibleID = ?", (person_id, person_id))
             except sqlite3.OperationalError:
-                pass # Tabela 'team_members' pode não existir, o que não impede a deleção.
+                pass 
 
-            # 3b. Remove o ID da pessoa das listas internas de responsáveis
-            # (Se você tiver listas armazenadas no DB em JSON, precisaria de uma lógica mais complexa de UPDATE JSON)
+            # 3c. Remove a pessoa de company_directors
+            try:
+                cursor.execute("DELETE FROM company_directors WHERE personID = ?", (person_id,))
+            except sqlite3.OperationalError:
+                pass 
             
             # Confirma todas as alterações
             self.__db.commit()
@@ -444,7 +433,7 @@ class Database:
         except sqlite3.Error as e:
             print(f"[ERRO] Falha ao limpar relações da Pessoa (ID: {person_id}): {e}")
             self.__db.rollback() 
-            raise # Levanta o erro para interromper a operação principal
+            raise
 
     # --- MÉTODOS DE RELAÇÃO UM-PARA-MUITOS (Assign/Unassign) ---
     
@@ -507,11 +496,28 @@ class Database:
     #Relações de Objective
     def assignResponsibleToObjective(self, responsible_id: str, objective_id: str):
         return self._assign_foreign_key("objective", "responsibleID", responsible_id, objective_id)
+    
+    def unassignResponsibleToObjective(self, objective_id: str):
+        return self._unassign_foreign_key("objective", "responsibleID", objective_id)
+    
+    def assignObjectiveToRPE(self, rpe_id: str, objective_id: str):
+        return self._assign_foreign_key("objective", "rpeID", rpe_id, objective_id)
+    
+    def unassignObjectiveToRPE(self, objective_id: str):
+        return self._unassign_foreign_key("objective", "rpeID", objective_id)
 
     # Relações de KPI
     def assignResponsibleToKPI(self, responsible_id: str, kpi_id: str):
         return self._assign_foreign_key("kpi", "responsibleID", responsible_id, kpi_id)
-
+    
+    def unassignResponsibleToKPI(self, kpi_id: str):
+        return self._unassign_foreign_key("kpi", "responsibleID", kpi_id)
+    
+    def assignKPIToObjective(self, objective_id: str, kpi_id: str):
+        return self._assign_foreign_key("kpi", "objectiveID", objective_id, kpi_id)
+    
+    def unassignKPIToObjective(self, kpi_id: str):
+        return self._unassign_foreign_key("kpi", "objectiveID", kpi_id)
 
     # --- MÉTODOS DE RELAÇÃO MUITOS-PARA-MUITOS (Junction Tables) ---
 
@@ -565,35 +571,22 @@ class Database:
 
     def deleteRpeFromCompany(self, company_id: str, rpe_id: str) -> bool:
         return self._delete_junction("company_rpes", "companyID", company_id, "rpeID", rpe_id)
-        
-    # department_rpes (Department <-> RPE)
+    
+    # department_rpes (Company <-> RPE)
     def addRpeToDepartment(self, department_id: str, rpe_id: str) -> bool:
         return self._add_junction("department_rpes", "departmentID", department_id, "rpeID", rpe_id)
 
     def deleteRpeFromDepartment(self, department_id: str, rpe_id: str) -> bool:
         return self._delete_junction("department_rpes", "departmentID", department_id, "rpeID", rpe_id)
-        
-    # team_rpes (Team <-> RPE)
+    
+    # team_rpes (Company <-> RPE)
     def addRpeToTeam(self, team_id: str, rpe_id: str) -> bool:
         return self._add_junction("team_rpes", "teamID", team_id, "rpeID", rpe_id)
 
     def deleteRpeFromTeam(self, team_id: str, rpe_id: str) -> bool:
         return self._delete_junction("team_rpes", "teamID", team_id, "rpeID", rpe_id)
+        
 
-    # rpe_objectives (RPE <-> Objective)
-    def addObjectiveToRpe(self, objective_id: str, rpe_id: str):
-        return self._add_junction("rpe_objectives","rpeID",rpe_id, "objectiveID",objective_id)
-    
-    def deleteObjectiveFromRpe(self, objective_id: str, rpe_id: str) -> bool:
-        return self._delete_junction("rpe_objectives", "rpeID", rpe_id, "objectiveID", objective_id)
-
-    # objective_kpis (Objective <-> KPI)
-    def addKpiToObjective(self, objective_id: str, kpi_id: str) -> bool:
-        return self._add_junction("objective_kpis", "objectiveID", objective_id, "kpiID", kpi_id)
-
-    def deleteKpiFromObjective(self, objective_id: str, kpi_id: str) -> bool:
-        return self._delete_junction("objective_kpis", "objectiveID", objective_id, "kpiID", kpi_id)
-    
     def updateItem(self, item: Entity) -> int:
         """
         Atualiza os campos diretos de um item no banco de dados.
@@ -645,26 +638,26 @@ class Database:
             # --- Bloco Objective ---
             elif isinstance(item, Objective):
                 query = """UPDATE objective
-                        SET description = ?, responsibleID = ?, date = ?
+                        SET description = ?, responsibleID = ?, rpeID = ?, date = ?
                         WHERE id = ?"""
-                params = (item.description, item.responsibleID, item.date, item.id)
+                params = (item.description, item.responsibleID, item.rpeID, item.date, item.id)
 
             # --- Bloco KR ---
             elif isinstance(item, KR):
                 dataText = json.dumps(item.data) 
                 query = """UPDATE kpi
-                        SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                        SET description = ?, responsibleID = ?, objectiveID = ?, date = ?, data = ?, goal = ?
                         WHERE id = ?"""
-                params = (item.description, item.responsibleID, item.date, dataText, item.goal,
+                params = (item.description, item.responsibleID, item.objectiveID, item.date, dataText, item.goal,
                         item.id)
 
             # --- Bloco KPI ---
             elif isinstance(item, KPI):
                 dataText = json.dumps(item.data) 
                 query = """UPDATE kpi
-                        SET description = ?, responsibleID = ?, date = ?, data = ?, goal = ?
+                        SET description = ?, responsibleID = ?, objectiveID = ?, date = ?, data = ?, goal = ?
                         WHERE id = ?"""
-                params = (item.description, item.responsibleID, item.date, dataText, None,
+                params = (item.description, item.responsibleID, item.objectiveID, item.date, dataText, None,
                         item.id)
             
             # --- Bloco Else ---
@@ -915,27 +908,46 @@ class Database:
             return None
 
     def getTeamByID(self, teamID: str) -> Optional[Team]:
-        """ Retorna um objeto Team pelo ID, hidratando suas listas de junção. """
+        """ 
+        Retorna um objeto Team pelo ID, hidratando suas listas de junção.
+        (Versão 1-para-N: busca employees na tabela 'person')
+        """
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM team WHERE id = ?", (teamID,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row: 
+                print(f"[AVISO] Nenhum time encontrado com o ID {teamID}.")
+                return None
             
-            params = dict(row)
+            # Usar dict(row) pode falhar se o cursor não for configurado
+            # para row_factory. Vamos usar o método seguro:
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
             
-            # Hidratação 1: 'employeeIds' (N-N)
-            cursor.execute("SELECT personID FROM team_members WHERE teamID = ?", (teamID,))
-            params["employeeIds"] = [r["personID"] for r in cursor.fetchall()]
+            # --- CORREÇÃO AQUI ---
+            # Hidratação 1: 'employeesIDs' (1-N, lendo da tabela 'person')
+            # Busca todas as Pessoas ONDE a FK teamID é este time.
+            cursor.execute("SELECT id FROM person WHERE teamID = ?", (teamID,))
+            
+            # Use o nome de parâmetro que o construtor de Team espera (ex: employeesIDs)
+            # CORREÇÃO: Usar índice 0
+            params["employeesIDs"] = [r[0] for r in cursor.fetchall()]
             
             # Hidratação 2: 'rpeIds' (N-N)
             cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
-            params["rpeIds"] = [r["rpeID"] for r in cursor.fetchall()]
+            # CORREÇÃO: Usar índice 0 e o nome de parâmetro correto (RPEIDs)
+            params["RPEIDs"] = [r[0] for r in cursor.fetchall()] 
             
+            # Assumindo que o construtor de Team espera 'employeesIDs' e 'RPEIDs'
             return Team(**params)
             
         except sqlite3.Error as e:
             print(f"Erro ao buscar time (ID: {teamID}): {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Team (ID: {teamID}): {e}")
+            print(f"   Parâmetros: {params}")
             return None
 
     def getRPEByID(self, rpeID: str) -> Optional[RPE]:
@@ -967,113 +979,77 @@ class Database:
             return None
 
     def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
-        """ Retorna um objeto Objective pelo ID, hidratando e separando 'kpiIds' e 'krIds'. """
+        """
+        Retorna um objeto Objective carregado a partir da tabela 'objective'.
+        Não tenta hidratar KPIs/KRs aqui — isso fica para Objective.getData(db).
+        """
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM objective WHERE id = ?", (objectiveID,))
             row = cursor.fetchone()
-            if not row: return None
-            
-            params = dict(row)
-            
-            # Hidratação 1: 'kpiIds' (N-N)
-            # Busca IDs que estão na junção E têm 'goal' NULO na tabela 'kpi'
-            query_kpis = """
-                SELECT OK.kpiID FROM objective_kpis AS OK
-                JOIN kpi AS K ON OK.kpiID = K.id
-                WHERE OK.objectiveID = ? AND K.goal IS NULL
-            """
-            cursor.execute(query_kpis, (objectiveID,))
-            params["kpiIds"] = [r["kpiID"] for r in cursor.fetchall()]
+            if not row:
+                return None
 
-            # Hidratação 2: 'krIds' (N-N)
-            # Busca IDs que estão na junção E têm 'goal' NÃO NULO na tabela 'kpi'
-            query_krs = """
-                SELECT OK.kpiID FROM objective_kpis AS OK
-                JOIN kpi AS K ON OK.kpiID = K.id
-                WHERE OK.objectiveID = ? AND K.goal IS NOT NULL
-            """
-            cursor.execute(query_krs, (objectiveID,))
-            params["krIds"] = [r["kpiID"] for r in cursor.fetchall()]
-            
-            return Objective(**params)
-            
+            # Monta dicionário coluna->valor de forma robusta
+            columns = [col[0] for col in cursor.description]
+            data = dict(zip(columns, row))
+
+            # Cria o objeto Objective usando os campos esperados pelo construtor
+            obj = Objective(
+                description=data.get("description"),
+                responsibleID=data.get("responsibleID"),
+                date=data.get("date"),
+                rpeID=data.get("rpeID"),
+                id=data.get("id")
+            )
+
+            return obj
+
         except sqlite3.Error as e:
-            print(f"Erro ao buscar objective (ID: {objectiveID}): {e}")
+            print(f"[ERRO] Falha ao buscar Objective (ID: {objectiveID}): {e}")
             return None
+        except Exception as e:
+            print(f"[ERRO] Erro inesperado ao construir Objective (ID: {objectiveID}): {e}")
+            return None
+
 
     def getKPIByID(self, kpiID: str) -> Optional[KPI]:
-        """ 
-        Retorna um objeto KPI pelo ID. 
-        Assume que um KPI tem 'data', mas não tem 'goal'.
-        """
         try:
             cursor = self.__db.cursor()
-            # Busca um item que DEVE ser um KPI (goal IS NULL)
             cursor.execute("SELECT * FROM kpi WHERE id = ? AND goal IS NULL", (kpiID,))
             row = cursor.fetchone()
-            if not row: 
-                print(f"[Aviso] Nenhum KPI (com goal=NULL) encontrado com ID {kpiID}.")
+            if not row:
                 return None
-            
-            params = dict(row)
-            
-            # Desserialização: O campo 'data' (que o KPI TEM)
-            if params.get("data"):
-                try:
-                    params["data"] = json.loads(params["data"])
-                except json.JSONDecodeError:
-                    params["data"] = [] # Padrão
-            else:
-                params["data"] = [] # Padrão
-            
-            # Limpeza: O KPI NÃO TEM 'goal'. Removemos antes de chamar o construtor.
-            if "goal" in params:
-                del params["goal"]
-            
-            # O construtor KPI(**params) agora recebe 'data', mas não 'goal'.
+
+            params = dict(zip([c[0] for c in cursor.description], row))
+
+            params["data"] = json.loads(params["data"]) if params.get("data") else []
+            params.pop("goal", None)
+
             return KPI(**params)
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar KPI (ID: {kpiID}): {e}")
+
+        except Exception as e:
+            print(f"[ERRO] Falha ao buscar KPI (ID: {kpiID}): {e}")
             return None
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar KPI (ID: {kpiID}): {e}")
-            return None
-        
-    def getKRByID(self, krID: str) -> Optional[KR]: # Alterei o tipo de retorno para KR
-        """ 
-        Retorna um objeto KR pelo ID. 
-        Assume que um KR tem 'data' e 'goal'.
-        """
+
+    def getKRByID(self, krID: str) -> Optional[KR]:
         try:
             cursor = self.__db.cursor()
-            # Busca um item que DEVE ser um KR (goal IS NOT NULL)
             cursor.execute("SELECT * FROM kpi WHERE id = ? AND goal IS NOT NULL", (krID,))
             row = cursor.fetchone()
-            if not row: 
-                print(f"[Aviso] Nenhum KR (com goal!=NULL) encontrado com ID {krID}.")
+            if not row:
                 return None
-            
-            params = dict(row)
-            
-            # Desserialização: O campo 'data' (que o KR TEM)
-            if params.get("data"):
-                try:
-                    params["data"] = json.loads(params["data"])
-                except json.JSONDecodeError:
-                    params["data"] = []
-            else:
-                params["data"] = []
-            
-            # O construtor KR(**params) recebe 'data' E 'goal'.
+
+            params = dict(zip([c[0] for c in cursor.description], row))
+
+            params["data"] = json.loads(params["data"]) if params.get("data") else []
+
             return KR(**params)
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar KR (ID: {krID}): {e}")
+
+        except Exception as e:
+            print(f"[ERRO] Falha ao buscar KR (ID: {krID}): {e}")
             return None
-        
+
     def getRPEsByDepartmentID(self, departmentID: str) -> list[RPE]:
         """
         Retorna uma lista de objetos RPE associados a um departmentID.
@@ -1129,6 +1105,27 @@ class Database:
         except sqlite3.Error as e:
             print(f"Erro ao buscar RPEs por ObjectiveID {objectiveID}: {e}")
             return []
+    
+    def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
+        """
+        Retorna uma lista de objetos RPE associados a um teamID.
+        """
+        if not teamID:
+            return []
+        try:
+            cursor = self.__db.cursor()
+            # 1. Busca todos os IDs de RPE da tabela de junção
+            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            
+            # 2. Reutiliza o getRPEByID para construir cada RPE de forma segura (com hidratação)
+            #    Isso é um "list comprehension" que faz um loop e filtra Nones
+            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
+            return rpes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
+            return []  
 
     def getRPEsByKpiID(self, kpiID: str) -> list[RPE]:
         """
@@ -1179,27 +1176,6 @@ class Database:
             
         else:
             print(f"[ERRO] Tipo de entidade '{entity_type}' não reconhecido.")
-            return []
-
-    def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
-        """
-        Retorna uma lista de objetos RPE associados a um teamID.
-        """
-        if not teamID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            # 1. Busca todos os IDs de RPE da tabela de junção
-            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            # 2. Reutiliza o getRPEByID para construir cada RPE de forma segura (com hidratação)
-            #    Isso é um "list comprehension" que faz um loop e filtra Nones
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
             return []
         
     def getCompanyByName(self, name: str) -> Optional[Company]:
@@ -1266,7 +1242,10 @@ class Database:
             return None
 
     def getTeamByName(self, name: str) -> Optional[Team]:
-        """Retorna um objeto Team pelo nome, hidratando suas listas de junção."""
+        """
+        Retorna um objeto Team pelo nome, hidratando suas listas de junção.
+        (Versão 1-para-N: busca employees na tabela 'person')
+        """
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM team WHERE name = ?", (name,))
@@ -1279,13 +1258,20 @@ class Database:
             params = dict(zip(columns, row))
             teamID = params["id"]
             
-            # Hidratação
-            cursor.execute("SELECT personID FROM team_members WHERE teamID = ?", (teamID,))
+            # --- CORREÇÃO AQUI ---
+            # Hidratação 1: 'employeesIDs' (1-N, lendo da tabela 'person')
+            cursor.execute("SELECT id FROM person WHERE teamID = ?", (teamID,))
+            
+            # Use o nome de parâmetro que o construtor de Team espera (ex: employeesIDs)
+            # CORREÇÃO: Usar índice 0
             params["employeesIDs"] = [r[0] for r in cursor.fetchall()]
             
+            # Hidratação 2: 'rpeIds' (N-N)
             cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
-            params["rpesIDs"] = [r[0] for r in cursor.fetchall()]
+            # CORREÇÃO: Usar índice 0 e o nome de parâmetro correto (RPEIDs)
+            params["RPEIDs"] = [r[0] for r in cursor.fetchall()] 
             
+            # Assumindo que o construtor de Team espera 'employeesIDs' e 'RPEIDs'
             return Team(**params)
 
         except sqlite3.Error as e:
@@ -1293,7 +1279,24 @@ class Database:
             return None
         except Exception as e:
             print(f"[ERRO] Falha ao construir Team pelo nome '{name}': {e}")
+            print(f"   Parâmetros: {params}")
             return None
+        
+    def getObjectivesByRPE(self, rpeID: str):
+        cursor = self.__db.cursor()
+        cursor.execute("SELECT id FROM objective WHERE rpeID = ?", (rpeID,))
+        return [row[0] for row in cursor.fetchall()]
+
+    def getKPIsByObjective(self, objectiveID: str):
+        cursor = self.__db.cursor()
+        cursor.execute("SELECT id FROM kpi WHERE objectiveID = ? AND goal IS NULL", (objectiveID,))
+        return [row[0] for row in cursor.fetchall()]
+
+    def getKRsByObjective(self, objectiveID: str):
+        cursor = self.__db.cursor()
+        cursor.execute("SELECT id FROM kpi WHERE objectiveID = ? AND goal IS NOT NULL", (objectiveID,))
+        return [row[0] for row in cursor.fetchall()]
+
 
 
 # --- MÉTODOS DE MUDANÇA DE ESTADO ---

@@ -5,15 +5,8 @@ if TYPE_CHECKING:
     from ..database.database import Database
 
 class Person(Entity):
-    name: str
-    cpf: str
-    companyID: int
-    departmentID: int
-    teamID: int
-    email: str
-    password: str
 
-    def __init__(self, name:str, cpf:str, companyID: str, departmentID: str, teamID: str, email: str, password: str, id:str = None):
+    def __init__(self, name, cpf, companyID, departmentID=None, teamID=None, email="", password="", id=None):
         super().__init__(id)
         self._name = name
         self._cpf = cpf
@@ -59,20 +52,18 @@ class Person(Entity):
     #Fazer todas operações sobre dado na própria classe, apenas busca e atualiza coisas no bd
 
     @role.setter
-    def role(self, role: str, db: 'Database'):
+    def role(self, role: str):
         """Setter para o cargo"""
         if not isinstance(role, str):
             raise TypeError("O nome deve ser uma string.")
         self._role = role
-        db.updateItem(self)
 
     @teamID.setter
-    def teamID(self, teamID: str, db: 'Database'):
+    def teamID(self, teamID: str):
         """Setter para o teamID"""
         if not isinstance(teamID, str):
             raise TypeError("O nome deve ser uma string.")
         self._teamID = teamID
-        db.updateItem(self)
 
     def verifyPassword(self, password :str):
         if password == self.__password:

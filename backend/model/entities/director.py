@@ -24,10 +24,26 @@ class Director(Person):
         db.assignPersonToTeam(person.id,person.teamID)
 
     def deleteUser(self, person: Person, db: 'Database'):
+        db.cleanupPersonRelationships(person.id)
         db.deleteItemByObject(person)
-        db.unassignPersonToCompany(person.id)
-        db.unassignPersonToDepartment(person.id)
-        db.unassignPersonToTeam(person.id)
+    
+    def createRPE(self, rpe: RPE, groupLevel: str, db: 'Database'):
+        person = db.getPersonByID(rpe.responsibleID)
+        if groupLevel == "Company":
+            db.addItem(rpe)
+            db.addRpeToCompany(person.companyID,rpe.id)
+        elif groupLevel == "Department":
+            db.addItem(rpe)
+            db.addRpeToDepartment(person.departmentID,rpe.id)
+        elif groupLevel == "Team":
+            db.addItem(rpe)
+            db.addRpeToTeam(person.departmentID,rpe.id)
+        else:
+            print("Group level inválido.")
+    
+    def deleteRPE(self, rpe: RPE, db: 'Database'):
+        db.cleanupDataRelationships(rpe.id, "RPE")
+        db.deleteItemByObject(rpe)
 
     def getDepartment(self, db: 'Database'):
         return db.getDepartmentByID(self.departmentID)
