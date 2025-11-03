@@ -17,7 +17,7 @@ from ..entities.kr import KR
 
 class Database:
 
-    def __init__(self, db_path: str = 'database/database.db'):
+    def __init__(self, db_path: str = 'backend/model/database/database.db'):
         
         self.__db = sqlite3.connect(db_path)
         
@@ -273,18 +273,20 @@ class Database:
             with self.__db: 
                 # --- Bloco Person ---
                 if isinstance(item, Person):
-                    
-                    # Verificação de unicidade (opcional, mas recomendado)
-                    if self.getPersonByID(item.id):
-                        print(f"[ERRO] Pessoa com ID {item.id} já existe.")
-                        return 1
-
-                    query = """INSERT INTO person (
-                               id, name, cpf, companyID, departmentID, teamID, role, email, password
-                               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
-                    params = (item.id, item.name, item.cpf, 
-                              item.companyID, item.departmentID, item.teamID,
-                              item.role, item.email, item.password)
+                    # Se já existe pessoa, não insere novamente
+                    if not self.getPersonByID(item.id):
+                        query = """INSERT INTO person (
+                                id, name, cpf, companyID, departmentID, teamID, role, email, password
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+                        params = (item.id, item.name, item.cpf, 
+                                item.companyID, item.departmentID, item.teamID,
+                                getattr(item, 'role', None), item.email, item.password)
+                        print("chegou")
+                        self.__db.execute(query, params)
+                        print("chegou")
+                        print(f"Person {item.id} inserida com sucesso.")
+                    else:
+                        print(f"[AVISO] Person {item.id} já existe, ignorando inserção.")
 
                 # --- Bloco Company ---
                 elif isinstance(item, Company):
@@ -1198,7 +1200,101 @@ class Database:
             
         except sqlite3.Error as e:
             print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
-            return []    
+            return []
+        
+    def getCompanyByName(self, name: str) -> Optional[Company]:
+        """Retorna um objeto Company pelo nome, hidratando suas listas de junção."""
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM company WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            if not row:
+                print(f"[AVISO] Nenhuma empresa encontrada com o nome '{name}'.")
+                return None
+            
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
+            company_id = params["id"]
+            
+            # Hidratação de listas de junção
+            cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (company_id,))
+            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (company_id,))
+            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT id FROM department WHERE companyID = ?", (company_id,))
+            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]
+            
+            return Company(**params)
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Erro SQL ao buscar Company pelo nome '{name}': {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Company pelo nome '{name}': {e}")
+            return None
+
+    def getDepartmentByName(self, name: str) -> Optional[Department]:
+        """Retorna um objeto Department pelo nome, hidratando suas listas de junção."""
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM department WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            if not row:
+                print(f"[AVISO] Nenhum departamento encontrado com o nome '{name}'.")
+                return None
+            
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
+            departmentID = params["id"]
+            
+            # Hidratação
+            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
+            params["rpeIds"] = [r[0] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT id FROM team WHERE departmentID = ?", (departmentID,))
+            params["teamsIds"] = [r[0] for r in cursor.fetchall()]
+            
+            return Department(**params)
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Erro SQL ao buscar Department pelo nome '{name}': {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Department pelo nome '{name}': {e}")
+            return None
+
+    def getTeamByName(self, name: str) -> Optional[Team]:
+        """Retorna um objeto Team pelo nome, hidratando suas listas de junção."""
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM team WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            if not row:
+                print(f"[AVISO] Nenhum time encontrado com o nome '{name}'.")
+                return None
+            
+            columns = [description[0] for description in cursor.description]
+            params = dict(zip(columns, row))
+            teamID = params["id"]
+            
+            # Hidratação
+            cursor.execute("SELECT personID FROM team_members WHERE teamID = ?", (teamID,))
+            params["employeesIDs"] = [r[0] for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
+            params["rpesIDs"] = [r[0] for r in cursor.fetchall()]
+            
+            return Team(**params)
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Erro SQL ao buscar Team pelo nome '{name}': {e}")
+            return None
+        except Exception as e:
+            print(f"[ERRO] Falha ao construir Team pelo nome '{name}': {e}")
+            return None
+
 
 # --- MÉTODOS DE MUDANÇA DE ESTADO ---
 
