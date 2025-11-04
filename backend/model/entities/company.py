@@ -16,15 +16,13 @@ class Company(Group):
 
     def addDepartment(self, departmentID : str, db: 'Database'):
         self.__departmentIds.append(departmentID)
-        db.updateItem(self)
 
     def removeDepartment(self, departmentID : str, db: 'Database'):
         self.__departmentIds.remove(departmentID)
-        db.updateItem(self)
 
     def addRPE(self, RPEID : str, db: 'Database'):
-            super().addRPE(RPEID,db)
-            db.addRpeToCompany(self.id,RPEID)
+        super().addRPE(RPEID,db)
+        db.addRpeToCompany(self.id,RPEID)
     
     def deleteRPE(self, RPEID : str, db: 'Database'):
         super().addRPE(RPEID,db)

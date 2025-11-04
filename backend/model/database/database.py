@@ -1,6 +1,9 @@
 import sqlite3
 import json
-from typing import Optional,Union
+from typing import TYPE_CHECKING,Optional,Union
+
+if TYPE_CHECKING:
+    from ..entities.data import Data
 
 from ..entities.entity import Entity
 from ..entities.person import Person
@@ -20,6 +23,8 @@ class Database:
     def __init__(self, db_path: str = 'backend/model/database/database.db'):
         
         self.__db = sqlite3.connect(db_path)
+
+        self.__db.row_factory = sqlite3.Row
         
         self.__db.execute("PRAGMA foreign_keys = ON;")
 
@@ -495,7 +500,6 @@ class Database:
     def deleteRpeFromTeam(self, team_id: str, rpe_id: str) -> bool:
         return self._delete_junction("team_rpes", "teamID", team_id, "rpeID", rpe_id)
         
-
     def updateItem(self, item: Entity) -> int:
         """
         Atualiza os campos diretos de um item no banco de dados.
@@ -692,6 +696,24 @@ class Database:
         except sqlite3.Error as e:
             print(f"[ERRO] Falha no get genérico para {table}: {e}")
             return None
+        
+    def _get_single_raw(self, table: str, field: str, value: str):
+        try:
+            cursor = self.__db.cursor()
+
+            query = f"SELECT * FROM {table} WHERE {field} = ? LIMIT 1;"
+            cursor.execute(query, (value,))
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            columns = [desc[0] for desc in cursor.description]
+            return {columns[i]: row[i] for i in range(len(columns))}
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha no get genérico para {table}: {e}")
+            return None
 
     def _get_many(self, table: str, field: str, value: str, cls):
         try:
@@ -761,7 +783,14 @@ class Database:
         except sqlite3.Error as e:
             print(f"[ERRO] Falha ao buscar RPEs na relação {relation_table}.{column}={value}: {e}")
             return []
-   
+        
+    def getResponsibleIDs(self, personID: str) -> list[str]:
+        cursor = self.__db.cursor()
+        cursor.execute("""
+            SELECT responsibleID FROM person_responsibles WHERE personID = ?
+        """, (personID,))
+        return [row[0] for row in cursor.fetchall()]
+
     def getMeasureByID(self, measureID: str) -> Optional[Union[KPI, KR]]:
         try:
             cursor = self.__db.cursor()
@@ -785,11 +814,42 @@ class Database:
             print(f"[ERRO] Falha ao buscar Measure (ID: {measureID}): {e}")
             return None
 
-    def getPersonByID(self, personID: str) -> Optional[Person]:
-        return self._get_single("person", "id", personID, Person)
+    def getPersonByID(self, personID: str):
+        data = self._get_single_raw("person", "id", personID)
+        if data is None:
+            return None
+
+        role = data.get("role", "Employee")
+
+        # Hidratar Manager/Director (responsibleIDs)
+        if role == "Manager":
+            resp = self.getResponsibleIDs(personID)
+            return Manager(responsibleIds=resp, **data)
+
+        elif role == "Director":
+            resp = self.getResponsibleIDs(personID)
+            return Director(responsibleIds=resp, **data)
+
+        return Person(**data)
 
     def getPersonByEmail(self, email: str) -> Optional[Person]:
-        return self._get_single("person", "email", email, Person)
+        data = self._get_single_raw("person", "email", email)
+        if data is None:
+            return None
+
+        role = data.get("role", "Employee")
+        personID = data["id"]
+
+        # Hidratar Manager/Director (responsibleIDs)
+        if role == "Manager":
+            resp = self.getResponsibleIDs(personID)
+            return Manager(responsibleIds=resp, **data)
+
+        elif role == "Director":
+            resp = self.getResponsibleIDs(personID)
+            return Director(responsibleIds=resp, **data)
+
+        return Person(**data)
 
     def getCompanyByID(self, companyID: str) -> Optional[Company]:
         company = self._get_single("company", "id", companyID, Company)
@@ -822,7 +882,7 @@ class Database:
     def getRPEByID(self, rpeID: str) -> Optional[RPE]:
         return self._get_single("rpe", "id", rpeID, RPE)
     
-    def getRPEByCompanyID(self, companyID: str) -> list[RPE]:
+    def getRPEsByCompanyID(self, companyID: str) -> list[RPE]:
         return self._getRPEsFromRelation("company_rpes", "companyID", companyID)
 
     def getRPEsByDepartmentID(self, departmentID: str) -> list[RPE]:
@@ -830,35 +890,11 @@ class Database:
 
     def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
         return self._getRPEsFromRelation("team_rpes", "teamID", teamID)
-       
-    def getRPEsByEntity(self, entity_type: str, entity_id: str) -> list[RPE]:
-        """
-        Busca RPEs associados a um ID de entidade específico (Team, Department ou Company).
-
-        
-        if not entity_id:
-            print("[ALERTA] ID da entidade não fornecido.")
-            return []
-
-        if entity_type == "Team":
-            return self.getRPEsByTeamID(entity_id) # Esta já existe
-        
-        elif entity_type == "Department":
-            return self.getRPEsByDepartmentID(entity_id) # Esta já existe
-
-        elif entity_type == "Company":
-            return self.getRPEsByCompanyID(entity_id) # Esta já existe
-            
-        else:
-            print(f"[ERRO] Tipo de entidade '{entity_type}' não reconhecido.")
-            return []
-        """
-        pass
 
     def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
         return self._get_single("objective", "id", objectiveID, Objective)
     
-    def getObjectivesByRPE(self, rpeID: str):
+    def getObjectivesByRPE(self, rpeID: str) -> list[str]:
         cursor = self.__db.cursor()
         cursor.execute("SELECT id FROM objective WHERE rpeID = ?", (rpeID,))
         return [row[0] for row in cursor.fetchall()]
@@ -867,7 +903,7 @@ class Database:
         result = self.getMeasureByID(kpiID)
         return result if isinstance(result, KPI) else None
 
-    def getKPIsByObjective(self, objectiveID: str):
+    def getKPIsByObjective(self, objectiveID: str) -> list[str]:
         cursor = self.__db.cursor()
         cursor.execute("SELECT id FROM kpi WHERE objectiveID = ? AND goal IS NULL", (objectiveID,))
         return [row[0] for row in cursor.fetchall()]
@@ -876,10 +912,55 @@ class Database:
         result = self.getMeasureByID(krID)
         return result if isinstance(result, KR) else None
 
-    def getKRsByObjective(self, objectiveID: str):
+    def getKRsByObjective(self, objectiveID: str) -> list[str]:
         cursor = self.__db.cursor()
         cursor.execute("SELECT id FROM kpi WHERE objectiveID = ? AND goal IS NOT NULL", (objectiveID,))
         return [row[0] for row in cursor.fetchall()]
+    
+    def getDataByEntity(self, group_type: str, group_id: str, data_type: str):
+        """
+        Retorna dados (RPE / Objective / KPI / KR) associados a Company, Department ou Team.
+        """
+
+        # --- 1) RPE ---
+        if data_type == "RPE":
+            match group_type:
+                case "Company":
+                    return self.getRPEsByCompanyID(group_id)
+                case "Department":
+                    return self.getRPEsByDepartmentID(group_id)
+                case "Team":
+                    return self.getRPEsByTeamID(group_id)
+            return []
+
+        # --- 2) Objective ---
+        if data_type == "Objective":
+            rpes = self.getDataByEntity(group_type, group_id, "RPE")
+            objectives = []
+            for rpe in rpes:
+                objectives.extend(self.getObjectivesByRPE(rpe.id))
+            return [self.getObjectiveByID(oid) for oid in objectives]
+
+        # --- 3) KPI ---
+        if data_type == "KPI":
+            objectives = self.getDataByEntity(group_type, group_id, "Objective")
+            kpis = []
+            for obj in objectives:
+                for kpiID in self.getKPIsByObjective(obj.id):
+                    kpis.append(self.getKPIByID(kpiID))
+            return kpis
+
+        # --- 4) KR ---
+        if data_type == "KR":
+            objectives = self.getDataByEntity(group_type, group_id, "Objective")
+            krs = []
+            for obj in objectives:
+                for krID in self.getKRsByObjective(obj.id):
+                    krs.append(self.getKRByID(krID))
+            return krs
+
+        return []
+
 
 # --- MÉTODOS DE MUDANÇA DE ESTADO ---
 
