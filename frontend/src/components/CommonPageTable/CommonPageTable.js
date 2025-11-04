@@ -18,6 +18,7 @@ export default function CommonPageTable({
 
         {data.map((lineData) => (
           <TableRow
+            key={data.name}
             data={lineData}
             hasEditFunction={hasEditFunction}
             hasDeleteFunction={hasDeleteFunction}
