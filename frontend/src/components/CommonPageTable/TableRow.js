@@ -3,7 +3,6 @@ import EditButton from "../../assets/Edit.svg";
 import DeleteButton from "../../assets/Delete.svg";
 
 export default function TableRow({ data, hasEditFunction, hasDeleteFunction }) {
-  console.log(hasEditFunction);
   return (
     <tr>
       <td className={styles.tableItem}>

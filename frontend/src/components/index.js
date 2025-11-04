@@ -5,5 +5,4 @@ export { default as Input } from "./Input/Input";
 export { default as Select } from "./Select/Select";
 export { default as HomeTable } from "./HomeTable/HomeTable";
 export { default as CommonPageTable } from "./CommonPageTable/CommonPageTable";
-
-export { default as TableRow } from "./HomeTable/TableRow";
+export { default as ManageRPEsTable } from "./ManageRPEsTable/ManageRPEsTable";

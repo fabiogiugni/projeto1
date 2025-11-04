@@ -8,7 +8,6 @@ export default function Login() {
 
   function logIn(e) {
     e.preventDefault();
-    console.log("Logging in with:", email, password);
   }
 
   return (

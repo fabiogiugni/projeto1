@@ -14,7 +14,6 @@ export default function Teams() {
     value: department.id,
   }));
 
-  console.log(searchedEmployee);
   /* espaço destinado a chamar a função do backend */
   let dataToShowOnTable = persons;
 
