@@ -16,6 +16,11 @@
   color: #2c2c2c;
 }
 
+.red {
+  background-color: #8b0000;
+  border-color: #8b0000;
+}
+
 .button:hover {
   background-color: #e3e3e3;
   color: #1e1e1e;
@@ -24,4 +29,10 @@
 .light:hover {
   background-color: #1e1e1e;
   color: #e3e3e3;
+}
+
+.red:hover {
+  background-color: #1e1e1e;
+  border-color: #e3e3e3;
+  color: #ff4444;
 }

@@ -1,0 +1,97 @@
+.overlay {
+  background-color: rgba(0, 0, 0, 0.6);
+  position: fixed;
+  inset: 0;
+  animation: fadeIn 0.2s ease;
+  z-index: 20;
+}
+
+.content {
+  background-color: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 0.2rem;
+  width: 400px;
+  padding: 1.5rem;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: #e3e3e3;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  animation: scaleIn 0.2s ease;
+  z-index: 30;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: #e3e3e3;
+}
+
+.closeButton {
+  all: unset;
+  cursor: pointer;
+  color: #e3e3e3;
+  font-size: 1.1rem;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.closeButton:hover {
+  color: #fff;
+  text-shadow: 0px 0px 1px #fff;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.deleteButton {
+  background-color: #ff4444;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.deleteButton:hover {
+  background-color: #e63939;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+.cancelIcon {
+  width: 1rem;
+  height: 1rem;
+}

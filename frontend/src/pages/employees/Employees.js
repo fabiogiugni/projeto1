@@ -43,6 +43,7 @@ export default function Employees() {
         type={"employees"}
         hasEditFunction={true}
         hasDeleteFunction={true}
+        deleteText="Tem certeza que deseja deletar o funciário?"
       />
     </div>
   );

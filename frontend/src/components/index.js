@@ -6,3 +6,4 @@ export { default as Select } from "./Select/Select";
 export { default as HomeTable } from "./HomeTable/HomeTable";
 export { default as CommonPageTable } from "./CommonPageTable/CommonPageTable";
 export { default as ManageRPEsTable } from "./ManageRPEsTable/ManageRPEsTable";
+export { default as DeleteModal } from "./DeleteModal/DeleteModal";

@@ -6,6 +6,7 @@ export default function CommonPageTable({
   type,
   hasEditFunction,
   hasDeleteFunction,
+  deleteText = "Tem certeza que deseja deletar? Os dados não poderão ser recuperados.",
 }) {
   return (
     <table className={styles.tableBackground}>
@@ -22,6 +23,7 @@ export default function CommonPageTable({
             data={lineData}
             hasEditFunction={hasEditFunction}
             hasDeleteFunction={hasDeleteFunction}
+            deleteText={deleteText}
           />
         ))}
       </tbody>
