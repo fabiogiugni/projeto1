@@ -7,28 +7,36 @@ if TYPE_CHECKING:
 
 class Company(Group):
 
-    def __init__(self, name: str, cnpj: str, id: str = None, RPEIDs: list[str] = None, departmentsIDs: list[str] = None, directorsIDs: list[str] = None):
+    def __init__(self, name: str, cnpj: str, id: str = None, rpeIds: list[str] = None, departmentIds: list[str] = None, directorIds: list[str] = None):
         # Repassa id, name e rpeIds para o Group
-        super().__init__(name,id,RPEIDs)
+        super().__init__(name,id, rpeIds)
         self.__cnpj = cnpj
-        self.__departmentsIds = departmentsIDs if departmentsIDs is not None else []
-        self.__directorsIds = directorsIDs if directorsIDs is not None else []
+        self.__departmentIds = departmentIds if departmentIds is not None else []
+        self.__directorIds = directorIds if directorIds is not None else []
 
     def addDepartment(self, departmentID : str, db: 'Database'):
-        self.__departmentsIds.append(departmentID)
+        self.__departmentIds.append(departmentID)
         db.updateItem(self)
 
     def removeDepartment(self, departmentID : str, db: 'Database'):
-        self.__departmentsIds.remove(departmentID)
+        self.__departmentIds.remove(departmentID)
         db.updateItem(self)
 
-    @property
-    def directorsIDs(self):
-        return self.__directorsIds
+    def addRPE(self, RPEID : str, db: 'Database'):
+            super().addRPE(RPEID,db)
+            db.addRpeToCompany(self.id,RPEID)
+    
+    def deleteRPE(self, RPEID : str, db: 'Database'):
+        super().addRPE(RPEID,db)
+        db.deleteRpeFromCompany(self.id,RPEID)
 
     @property
-    def departmentIDs(self):
-        return self.__departmentsIds
+    def directorIds(self):
+        return self.__directorIds
+
+    @property
+    def departmentIds(self):
+        return self.__departmentIds
 
     @property
     def cnpj(self):

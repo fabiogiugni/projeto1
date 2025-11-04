@@ -7,53 +7,37 @@ if TYPE_CHECKING:
 
 class Objective(Data):
 
-    def __init__(self, description: str, responsibleID: str, date: datetime, id:str = None, kpiIds: list[str] = None, krIds: list[str] = None):
+    def __init__(self, description: str, responsibleID: str,date: str, rpeID: str, id:str = None):
         super().__init__(description, responsibleID, date, id)
-        self.__kpiIds = kpiIds if kpiIds is not None else []
-        self.__krIds = krIds if krIds is not None else []
+        self.__rpeID = rpeID
     
-    def addKpi(self, kpiID: str, db: 'Database'):
-        self.__kpiIds.append(kpiID)
-        db.updateItem(self)
+    @property
+    def rpeID(self):
+        return self.__rpeID
 
-    def deleteKpi(self, kpiID: str, db: 'Database'):
-        self.__kpiIds.remove(kpiID)
-        db.updateItem(self)
+    @rpeID.setter
+    def rpeID(self, rpeID: str):
+        """Setter para o rpeID"""
+        if not isinstance(rpeID, str):
+            raise TypeError("O nome deve ser uma string.")
+        self.__rpeID = rpeID    
 
-    def addKr(self, krID: str, db: 'Database'):
-        self.__krIds.append(krID)
-        db.updateItem(self)
+    def getData(self, db: 'Database'):
+        data = super().getData(db)
 
-    def deleteKr(self, krID: str, db: 'Database'):
-        self.__krIds.remove(krID)
-        db.updateItem(self)
-        
+        kpi_ids = db.getKPIsByObjective(self.id)
+        kr_ids = db.getKRsByObjective(self.id)
 
-    def getData(self, db: 'Database') -> Dict[str, Any]:
-        """
-        Retorna os dados do Objetivo e, recursivamente, 
-        os dados de seus KPIs e KRs filhos.
-        """
-        # 1. Pega o dicionário base (id, desc, etc.)
-        data_dict = super().getData(db)
+        data["kpis"] = [
+            db.getKPIByID(kpi_id).getData(db)
+            for kpi_id in kpi_ids
+            if db.getKPIByID(kpi_id)
+        ]
 
-        # 2. Processa KPIs filhos
-        kpi_data_list: List[Dict[str, Any]] = []
-        for kpi_id in self.__kpiIds:
-            kpi_obj = db.getKPIByID(kpi_id) # Requer DB
-            if kpi_obj:
-                kpi_data_list.append(kpi_obj.getData(db)) # Chamada recursiva
-        
-        # 3. Processa KRs filhos
-        kr_data_list: List[Dict[str, Any]] = []
-        for kr_id in self.__krIds:
-            kr_obj = db.getKRByID(kr_id) # Requer DB
-            if kr_obj:
-                kr_data_list.append(kr_obj.getData(db)) # Chamada recursiva
+        data["krs"] = [
+            db.getKRByID(kr_id).getData(db)
+            for kr_id in kr_ids
+            if db.getKRByID(kr_id)
+        ]
 
-        # 4. Adiciona as listas ao dicionário principal
-        data_dict.update({
-            "kpis": kpi_data_list,
-            "krs": kr_data_list
-        })
-        return data_dict
+        return data

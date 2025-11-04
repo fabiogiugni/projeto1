@@ -23,44 +23,38 @@ class Manager(Person):
     def addTeamEmployee(self, employeeID: str, db: 'Database'):
         db.assignPersonToTeam(employeeID, self.teamID)
 
-    def createObjective(self, obj: Objective, rpeID: str, db: 'Database'):
-        if db.isRPETeamOrDepartmentLevel(rpeID):
+    def createObjective(self, obj: Objective, db: 'Database'):
+        if db.isRPETeamOrDepartmentLevel(obj.rpeID):
             db.addItem(obj)
-            db.addObjectiveToRpe(obj.id,rpeID)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")
 
-    def deleteObjective(self, obj: Objective, rpeID: str, db: 'Database'):
-        if db.isRPETeamOrDepartmentLevel(rpeID):
-            db.cleanupDataRelationships(obj.id, obj.__class__.__name__)
+    def deleteObjective(self, obj: Objective, db: 'Database'):
+        if db.isRPETeamOrDepartmentLevel(obj.rpeID):
             db.deleteItemByObject(obj)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")     
     
-    def createKPI(self, kpi: KPI, objectiveID: str, db: 'Database'):
-        if db.isObjectiveTeamOrDepartmentLevel(objectiveID):
+    def createKPI(self, kpi: KPI, db: 'Database'):
+        if db.isObjectiveTeamOrDepartmentLevel(kpi.objectiveID):
             db.addItem(kpi)
-            db.addKpiToObjective(objectiveID,kpi.id)
         else:
-            print("Erro ao adicionar KPI: nível de acesso inválido.")
+            print("Erro ao adicionar objetivo: nível de acesso inválido.")
 
-    def deleteKPI(self, kpi: KPI, objectiveID: str, db: 'Database'):
-        if db.isObjectiveTeamOrDepartmentLevel(objectiveID):
-            db.cleanupDataRelationships(kpi.id)
+    def deleteKPI(self, kpi: KPI, db: 'Database'):
+        if db.isObjectiveTeamOrDepartmentLevel(kpi.objectiveID):
             db.deleteItemByObject(kpi)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")
 
-    def createKR(self, kr: KR, objectiveID: str, db: 'Database'):
-        if db.isObjectiveTeamOrDepartmentLevel(objectiveID):
+    def createKR(self, kr: KR, db: 'Database'):
+        if db.isObjectiveTeamOrDepartmentLevel(kr.objectiveID):
             db.addItem(kr)
-            db.addKpiToObjective(objectiveID,kr.id)
         else:
             print("Erro ao adicionar KR: nível de acesso inválido.")
     
     def deleteKR(self, kr: KR, objectiveID: str, db: 'Database'):
         if db.isObjectiveTeamOrDepartmentLevel(objectiveID):
-            db.cleanupDataRelationships(kr.id)
             db.deleteItemByObject(kr)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")

@@ -23,14 +23,8 @@ class ActionInterface(ABC):
     def collectIndicator(self, id: str, db : Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
         pass
     @abstractmethod
-    def getData(self, groupID: str, db : Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
+    def addResponsibleRpeId(self, rpdID: str, db: 'Database') -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
         pass
     @abstractmethod
-    def getData(self, groupID: str, db : Database) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
-        pass
-    @abstractmethod
-    def addResponsibleRpeId(self, rpdID: str) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
-        pass
-    @abstractmethod
-    def deleteResponsibleRpeId(self, rpdID: str) -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
+    def deleteResponsibleRpeId(self, rpdID: str, db: 'Database') -> None: #manager tem acesso a nivel de team e Director tem acesso a nivel de dpto
         pass

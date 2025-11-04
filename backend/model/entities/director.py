@@ -20,6 +20,26 @@ class Director(Person):
     def createUser(self, person: Person, db: 'Database'):
         db.addItem(person)
 
+    def deleteUser(self, person: Person, db: 'Database'):
+        db.deleteItemByObject(person)
+    
+    def createRPE(self, rpe: RPE, groupLevel: str, db: 'Database'):
+        person = db.getPersonByID(rpe.responsibleID)
+        if groupLevel == "Company":
+            db.addItem(rpe)
+            db.addRpeToCompany(person.companyID,rpe.id)
+        elif groupLevel == "Department":
+            db.addItem(rpe)
+            db.addRpeToDepartment(person.departmentID,rpe.id)
+        elif groupLevel == "Team":
+            db.addItem(rpe)
+            db.addRpeToTeam(person.teamID,rpe.id)
+        else:
+            print("Group level inválido.")
+    
+    def deleteRPE(self, rpe: RPE, db: 'Database'):
+        db.deleteItemByObject(rpe)
+
     def getDepartment(self, db: 'Database'):
         return db.getDepartmentByID(self.departmentID)
     
@@ -29,37 +49,31 @@ class Director(Person):
     def changeDepartmentDirector(self, departmentID : str, personID: str, db: 'Database'):
         db.changeDepartmentDirector(departmentID, personID)
     
-    def createObjective(self, obj: Objective, rpeID: str, db: Database ):
+    def createObjective(self, obj: Objective, db: 'Database'):
         db.addItem(obj)
-        db.addObjectiveToRpe(obj.id,rpeID)
 
-    def deleteObjective(self, obj: Objective, db: Database):
-        db.cleanupDataRelationships(obj.id, obj.__class__.__name__)
-        db.deleteItemByObject(obj)
+    def deleteObjective(self, obj: Objective, db: 'Database'):
+        db.deleteItemByObject(obj)     
     
-    def createKPI(self, kpi: KPI, objectiveID: str, db: Database):
+    def createKPI(self, kpi: KPI, db: 'Database'):
         db.addItem(kpi)
-        db.addKpiToObjective(objectiveID,kpi.id)
 
-    def deleteKPI(self, kpi: KPI, db: Database):
-        db.cleanupDataRelationships(kpi.id)
+    def deleteKPI(self, kpi: KPI, db: 'Database'):
         db.deleteItemByObject(kpi)
 
-    def createKR(self, kr: KR, objectiveID: str, db: Database):
+    def createKR(self, kr: KR, db: 'Database'):
         db.addItem(kr)
-        db.addKpiToObjective(objectiveID,kr.id)
     
-    def deleteKR(self, kr:KR, db: Database):
-        db.cleanupDataRelationships(kr.id)
+    def deleteKR(self, kr: KR, db: 'Database'):
         db.deleteItemByObject(kr)
 
-    def collectIndicator(self, kpi: KPI, db: Database ):
+    def collectIndicator(self, kpi: KPI, db: 'Database'):
         db.updateItem(kpi)
 
-    def addResponsibleRpeId(self, rpdID: str, db: Database) -> None:
+    def addResponsibleRpeId(self, rpdID: str, db: 'Database') -> None:
         self.__responsibleIDs.append(rpdID)
         db.updateItem(self)
 
-    def deleteResponsibleRpeId(self, rpdID: str, db: Database) -> None:
+    def deleteResponsibleRpeId(self, rpdID: str, db: 'Database') -> None:
         self.__responsibleIDs.remove(rpdID)
         db.updateItem(self)

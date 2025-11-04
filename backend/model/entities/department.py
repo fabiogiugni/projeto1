@@ -7,9 +7,9 @@ if TYPE_CHECKING:
 
 class Department(Group):
 
-    def __init__(self, name: str, directorID: str =None, companyID:str = None, id: str = None, rpeIds: list[str] = None, teamsIds: list[str] = None):
+    def __init__(self, name: str, directorID: str =None, companyID:str = None, id: str = None, rpeIds: list[str] = None, teamIds: list[str] = None):
         super().__init__(name, id, rpeIds)
-        self.__teamIds = teamsIds if teamsIds is not None else []
+        self.__teamIds = teamIds if teamIds is not None else []
         self.__directorID = directorID
         self.__companyID = companyID
 
@@ -20,6 +20,14 @@ class Department(Group):
     def removeTeam(self, teamID : str, db: 'Database'):
         self.__teamIds.remove(teamID)
         db.updateItem(self)
+    
+    def addRPE(self, RPEID : str, db: 'Database'):
+        super().addRPE(RPEID,db)
+        db.addRpeToDepartment(self.id,RPEID)
+    
+    def deleteRPE(self, RPEID : str, db: 'Database'):
+        super().addRPE(RPEID,db)
+        db.deleteRpeFromDepartment(self.id,RPEID)
 
     @property
     def teamIds(self):
@@ -34,6 +42,5 @@ class Department(Group):
         return self.__companyID
 
     @directorID.setter
-    def directorID(self, directorID : str, db: 'Database'):
+    def directorID(self, directorID : str):
         self.__directorID = directorID
-        db.updateItem(self)
