@@ -1,7 +1,13 @@
 import styles from "./ManageRPEsTable.module.css";
 import TableRow from "./TableRow";
 
-export default function HomeTable({ data, type, group, groupType }) {
+export default function HomeTable({
+  data,
+  type,
+  group,
+  groupType,
+  deleteText = "Tem certeza que deseja deletar? Os dados não poderão ser recuperados.",
+}) {
   return (
     <table className={styles.tableBackground}>
       <tbody>
@@ -31,6 +37,7 @@ export default function HomeTable({ data, type, group, groupType }) {
               group={group}
               type={type}
               key={lineData.id}
+              deleteText={deleteText}
             />
           ))}
         </>
