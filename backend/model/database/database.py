@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from typing import Optional
+from typing import Optional,Union
 
 from ..entities.entity import Entity
 from ..entities.person import Person
@@ -150,7 +150,7 @@ class Database:
             self.__db.close()
             print("LOG: Conexão com o banco de dados fechada.")
 
-
+    #Fazer deleteItemByID
     def deleteItemByObject(self, item: Entity) -> Optional[int]:
         """
         Remove um item do banco de dados.
@@ -192,7 +192,7 @@ class Database:
             print(f"Erro ao deletar item de '{tableName}' (ROLLBACK executado): {e}")
             return None
     
-    def cleanupDataRelationships(self, data_id: str, data_type: str) -> None:
+
         """
         Remove referências de um objeto Data (RPE, Objective, KPI, KR)
         das tabelas de junção ANTES de sua exclusão.
@@ -243,16 +243,10 @@ class Database:
                         self.__db.execute(query, params)
                         
                         # LÓGICA DE RELACIONAMENTO BASE PARA PERSON
-                        # 1. Atribui a Pessoa à Empresa
+                        # 1. Atribui a Pessoa aos grupos
                         self.assignPersonToCompany(item.id, item.companyID)
-                        
-                        # 2. Se a pessoa for um Manager, atribui ela ao Team
-                        if isinstance(item, Manager):
-                            self.changeTeamManager(item.teamID, item.id)
-                        
-                        # 3. Se a pessoa for um Director, atribui ela ao Department
-                        if isinstance(item, Director):
-                            self.changeDepartmentDirector(item.departmentID, item.id)
+                        self.assignPersonToDepartment(item.id, item.departmentID)
+                        self.assignPersonToTeam(item.id, item.teamID)
                     else:
                         print(f"[AVISO] Person {item.id} já existe, ignorando inserção.")
 
@@ -267,7 +261,7 @@ class Database:
                     
                     # LÓGICA DE RELACIONAMENTO BASE PARA COMPANY
                     # Adiciona os diretores à tabela de junção
-                    for director_id in item.directorsIDs:
+                    for director_id in item.directorIds:
                         self.addDirectorToCompany(item.id, director_id)
 
                 # --- Bloco Department ---
@@ -350,79 +344,6 @@ class Database:
             print(f"[ERRO] Erro SQL ao adicionar {entity_name} (ID: {item.id}): {e}")
             return 1
         
-    def cleanupDataRelationships(self, data_id: str, data_type: str) -> None:
-        """
-        Remove todas as referências de um objeto Data (RPE, Objective, KPI, KR)
-        das tabelas de junção antes de sua exclusão.
-        """
-        cursor = self.__db.cursor()
-        
-        try:
-            if data_type == "RPE":
-                # RPE está ligado a Company, Department e Team
-                cursor.execute("DELETE FROM company_rpes WHERE rpeID = ?", (data_id,))
-                cursor.execute("DELETE FROM department_rpes WHERE rpeID = ?", (data_id,))
-                cursor.execute("DELETE FROM team_rpes WHERE rpeID = ?", (data_id,))
-            
-            # Confirma as exclusões das relações
-            self.__db.commit()
-            
-        except sqlite3.Error as e:
-            print(f"[ERRO] Falha ao limpar relações do {data_type} (ID: {data_id}): {e}")
-            # É importante fazer um rollback se a exclusão da relação falhar, 
-            # para não prosseguir com a exclusão do item principal
-            self.__db.rollback() 
-            raise # Levanta o erro para interromper a operação principal
-    
-    def cleanupPersonRelationships(self, person_id: str) -> None:
-        """
-        (Versão 1-para-N: remove a referência a 'team_members')
-        """
-        cursor = self.__db.cursor()
-        
-        try:
-            # --- 1. LIMPAR CARGOS DE LIDERANÇA (SET NULL) ---
-            
-            # 1a. Remove a pessoa como DIRETOR de um Departamento
-            cursor.execute("UPDATE department SET directorID = NULL WHERE directorID = ?", (person_id,))
-            
-            # 1b. Remove a pessoa como GERENTE de um Time
-            cursor.execute("UPDATE team SET managerID = NULL WHERE managerID = ?", (person_id,))
-
-            # --- 2. LIMPAR RESPONSABILIDADE POR DATA (SET NULL) ---
-            cursor.execute("UPDATE rpe SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
-            cursor.execute("UPDATE objective SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
-            cursor.execute("UPDATE kpi SET responsibleID = NULL WHERE responsibleID = ?", (person_id,))
-            
-            # --- 3. REMOVER DE TABELAS DE JUNÇÃO ---
-            
-            # 3a. Remove a pessoa como MEMBRO de um Time (NÃO É MAIS NECESSÁRIO)
-            # O campo 'person.teamID' será tratado pelo 'ON DELETE SET NULL'
-            # do 'team(id)', caso o time seja deletado. Se a pessoa for deletada,
-            # não há problema, pois ninguém mais aponta para ela.
-            
-            # 3b. Remove a pessoa das listas de responsáveis (person_responsibles)
-            # (Assumindo que esta tabela exista, o CASCADE deve cuidar disso, 
-            # mas podemos forçar para garantir)
-            try:
-                cursor.execute("DELETE FROM person_responsibles WHERE personID = ? OR responsibleID = ?", (person_id, person_id))
-            except sqlite3.OperationalError:
-                pass 
-
-            # 3c. Remove a pessoa de company_directors
-            try:
-                cursor.execute("DELETE FROM company_directors WHERE personID = ?", (person_id,))
-            except sqlite3.OperationalError:
-                pass 
-            
-            # Confirma todas as alterações
-            self.__db.commit()
-            
-        except sqlite3.Error as e:
-            print(f"[ERRO] Falha ao limpar relações da Pessoa (ID: {person_id}): {e}")
-            self.__db.rollback() 
-            raise
-
     # --- MÉTODOS DE RELAÇÃO UM-PARA-MUITOS (Assign/Unassign) ---
     
     def _assign_foreign_key(self, table: str, fk_column: str, fk_id: str, primary_id: str) -> bool:
@@ -443,70 +364,7 @@ class Database:
     def _unassign_foreign_key(self, table: str, fk_column: str, primary_id: str) -> bool:
         """Função auxiliar genérica para limpar um FK (relação 1-N)."""
         return self._assign_foreign_key(table, fk_column, None, primary_id)
-
-    # Relações de Department
-    def assignDepartmentToCompany(self, department_id: str, company_id: str):
-        return self._assign_foreign_key("department", "companyID", company_id, department_id)
-
-    def assignDirectorToDepartment(self, director_id: str, department_id: str):
-        return self._assign_foreign_key("department", "directorID", director_id, department_id)
-
-    # Relações de Team
-    def assignTeamToDepartment(self, team_id: str, department_id: str):
-        return self._assign_foreign_key("team", "departmentID", department_id, team_id)
-
-    def assignManagerToTeam(self, manager_id: str, team_id: str):
-        return self._assign_foreign_key("team", "managerID", manager_id, team_id)
-
-    # Relações de Person
-    def assignPersonToTeam(self, person_id: str, team_id: str):
-        return self._assign_foreign_key("person", "teamID", team_id, person_id)
     
-    def unassignPersonToTeam(self, person_id: str) -> bool:
-        return self._unassign_foreign_key("person", "teamID", person_id)
-
-    def assignPersonToDepartment(self, person_id: str, department_id: str):
-        return self._assign_foreign_key("person", "departmentID", department_id, person_id)
-    
-    def unassignPersonToDepartment(self, person_id: str) -> bool:
-        return self._unassign_foreign_key("person", "departmentID", person_id)
-    
-    def assignPersonToCompany(self, person_id: str, company_id: str):
-        return self._assign_foreign_key("person", "companyID", company_id, person_id)
-    
-    def unassignPersonToCompany(self, person_id: str) -> bool:
-        return self._unassign_foreign_key("person", "companyID", person_id)
-
-    # Relações de RPE
-    def assignResponsibleToRPE(self, responsible_id: str, rpe_id: str):
-        return self._assign_foreign_key("rpe", "responsibleID", responsible_id, rpe_id)
-
-    #Relações de Objective
-    def assignResponsibleToObjective(self, responsible_id: str, objective_id: str):
-        return self._assign_foreign_key("objective", "responsibleID", responsible_id, objective_id)
-    
-    def unassignResponsibleToObjective(self, objective_id: str):
-        return self._unassign_foreign_key("objective", "responsibleID", objective_id)
-    
-    def assignObjectiveToRPE(self, rpe_id: str, objective_id: str):
-        return self._assign_foreign_key("objective", "rpeID", rpe_id, objective_id)
-    
-    def unassignObjectiveToRPE(self, objective_id: str):
-        return self._unassign_foreign_key("objective", "rpeID", objective_id)
-
-    # Relações de KPI
-    def assignResponsibleToKPI(self, responsible_id: str, kpi_id: str):
-        return self._assign_foreign_key("kpi", "responsibleID", responsible_id, kpi_id)
-    
-    def unassignResponsibleToKPI(self, kpi_id: str):
-        return self._unassign_foreign_key("kpi", "responsibleID", kpi_id)
-    
-    def assignKPIToObjective(self, objective_id: str, kpi_id: str):
-        return self._assign_foreign_key("kpi", "objectiveID", objective_id, kpi_id)
-    
-    def unassignKPIToObjective(self, kpi_id: str):
-        return self._unassign_foreign_key("kpi", "objectiveID", kpi_id)
-
     # --- MÉTODOS DE RELAÇÃO MUITOS-PARA-MUITOS (Junction Tables) ---
 
     def _add_junction(self, table: str, col1_name: str, col1_id: str, col2_name: str, col2_id: str) -> bool:
@@ -538,6 +396,69 @@ class Database:
         except sqlite3.Error as e:
             print(f"Erro de DB ao deletar de '{table}': {e}")
             return False
+
+    # Relações de Department UM-PARA-MUITOS
+    def assignDepartmentToCompany(self, department_id: str, company_id: str):
+        return self._assign_foreign_key("department", "companyID", company_id, department_id)
+
+    def assignDirectorToDepartment(self, director_id: str, department_id: str):
+        return self._assign_foreign_key("department", "directorID", director_id, department_id)
+
+    # Relações de Team UM-PARA-MUITOS
+    def assignTeamToDepartment(self, team_id: str, department_id: str):
+        return self._assign_foreign_key("team", "departmentID", department_id, team_id)
+
+    def assignManagerToTeam(self, manager_id: str, team_id: str):
+        return self._assign_foreign_key("team", "managerID", manager_id, team_id)
+
+    # Relações de Person UM-PARA-MUITOS
+    def assignPersonToTeam(self, person_id: str, team_id: str):
+        return self._assign_foreign_key("person", "teamID", team_id, person_id)
+    
+    def unassignPersonToTeam(self, person_id: str) -> bool:
+        return self._unassign_foreign_key("person", "teamID", person_id)
+
+    def assignPersonToDepartment(self, person_id: str, department_id: str):
+        return self._assign_foreign_key("person", "departmentID", department_id, person_id)
+    
+    def unassignPersonToDepartment(self, person_id: str) -> bool:
+        return self._unassign_foreign_key("person", "departmentID", person_id)
+    
+    def assignPersonToCompany(self, person_id: str, company_id: str):
+        return self._assign_foreign_key("person", "companyID", company_id, person_id)
+    
+    def unassignPersonToCompany(self, person_id: str) -> bool:
+        return self._unassign_foreign_key("person", "companyID", person_id)
+
+    # Relações de RPE UM-PARA-MUITOS
+    def assignResponsibleToRPE(self, responsible_id: str, rpe_id: str):
+        return self._assign_foreign_key("rpe", "responsibleID", responsible_id, rpe_id)
+
+    #Relações de Objective UM-PARA-MUITOS
+    def assignResponsibleToObjective(self, responsible_id: str, objective_id: str):
+        return self._assign_foreign_key("objective", "responsibleID", responsible_id, objective_id)
+    
+    def unassignResponsibleToObjective(self, objective_id: str):
+        return self._unassign_foreign_key("objective", "responsibleID", objective_id)
+    
+    def assignObjectiveToRPE(self, rpe_id: str, objective_id: str):
+        return self._assign_foreign_key("objective", "rpeID", rpe_id, objective_id)
+    
+    def unassignObjectiveToRPE(self, objective_id: str):
+        return self._unassign_foreign_key("objective", "rpeID", objective_id)
+
+    # Relações de KPI UM-PARA-MUITOS
+    def assignResponsibleToKPI(self, responsible_id: str, kpi_id: str):
+        return self._assign_foreign_key("kpi", "responsibleID", responsible_id, kpi_id)
+    
+    def unassignResponsibleToKPI(self, kpi_id: str):
+        return self._unassign_foreign_key("kpi", "responsibleID", kpi_id)
+    
+    def assignKPIToObjective(self, objective_id: str, kpi_id: str):
+        return self._assign_foreign_key("kpi", "objectiveID", objective_id, kpi_id)
+    
+    def unassignKPIToObjective(self, kpi_id: str):
+        return self._unassign_foreign_key("kpi", "objectiveID", kpi_id)
 
     # person_responsibles (Person <-> Person)
     def addResponsibleToPerson(self, person_id: str, responsible_id: str) -> bool:
@@ -578,7 +499,7 @@ class Database:
     def updateItem(self, item: Entity) -> int:
         """
         Atualiza os campos diretos de um item no banco de dados.
-        Agora também atualiza as relações RPEIDs para Team, Department e Company.
+        Agora também atualiza as relações rpeIds para Team, Department e Company.
         """
         
         query = ""
@@ -660,43 +581,43 @@ class Database:
                     print(f"[AVISO] Nenhum {type(item).__name__} atualizado (ID: {item.id}). ID não encontrado.")
                     return 1
                 
-                # --- ATUALIZAÇÃO DOS RPEIDs PARA TEAM, DEPARTMENT E COMPANY ---
+                # --- ATUALIZAÇÃO DOS rpeIds PARA TEAM, DEPARTMENT E COMPANY ---
                 
                 # Team RPEs
-                if isinstance(item, Team) and hasattr(item, 'RPEIDs'):
+                if isinstance(item, Team) and hasattr(item, 'rpeIds'):
                     # Primeiro remove todos os RPEs existentes
                     self.__db.execute("DELETE FROM team_rpes WHERE teamID = ?", (item.id,))
                     # Depois insere os novos RPEs
-                    for rpe_id in item.RPEIDs:
+                    for rpe_id in item.rpeIds:
                         self.__db.execute(
                             "INSERT INTO team_rpes (teamID, rpeID) VALUES (?, ?)",
                             (item.id, rpe_id)
                         )
-                    print(f"RPEIDs do Team {item.id} atualizados: {item.RPEIDs}")
+                    print(f"rpeIds do Team {item.id} atualizados: {item.rpeIds}")
                 
                 # Department RPEs
-                elif isinstance(item, Department) and hasattr(item, 'RPEIDs'):
+                elif isinstance(item, Department) and hasattr(item, 'rpeIds'):
                     # Remove todos os RPEs existentes
                     self.__db.execute("DELETE FROM department_rpes WHERE departmentID = ?", (item.id,))
                     # Insere os novos RPEs
-                    for rpe_id in item.RPEIDs:
+                    for rpe_id in item.rpeIds:
                         self.__db.execute(
                             "INSERT INTO department_rpes (departmentID, rpeID) VALUES (?, ?)",
                             (item.id, rpe_id)
                         )
-                    print(f"RPEIDs do Department {item.id} atualizados: {item.RPEIDs}")
+                    print(f"rpeIds do Department {item.id} atualizados: {item.rpeIds}")
                 
                 # Company RPEs
-                elif isinstance(item, Company) and hasattr(item, 'RPEIDs'):
+                elif isinstance(item, Company) and hasattr(item, 'rpeIds'):
                     # Remove todos os RPEs existentes
                     self.__db.execute("DELETE FROM company_rpes WHERE companyID = ?", (item.id,))
                     # Insere os novos RPEs
-                    for rpe_id in item.RPEIDs:
+                    for rpe_id in item.rpeIds:
                         self.__db.execute(
                             "INSERT INTO company_rpes (companyID, rpeID) VALUES (?, ?)",
                             (item.id, rpe_id)
                         )
-                    print(f"RPEIDs da Company {item.id} atualizados: {item.RPEIDs}")
+                    print(f"rpeIds da Company {item.id} atualizados: {item.rpeIds}")
                 
             print(f"{type(item).__name__} (ID: {item.id}) atualizado com sucesso.")
             return 0 # Sucesso
@@ -749,383 +670,172 @@ class Database:
 
 # --- MÉTODOS DE BUSCA "GET" ---
 
-    def getPersonByID(self, personID: str) -> Optional[Person]:
-        """
-        Retorna um objeto Person (ou Manager/Director) pelo ID, 
-        hidratando as listas de IDs a partir das tabelas de junção.
-        """
+    def _get_single(self, table: str, field: str, value: str, cls):
         try:
             cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM person WHERE id = ?", (personID,))
+
+            query = f"SELECT * FROM {table} WHERE {field} = ? LIMIT 1;"
+            cursor.execute(query, (value,))
             row = cursor.fetchone()
-            
+
             if not row:
-                print(f"[AVISO] Nenhuma pessoa encontrada com o ID {personID}.")
                 return None
-                
-            return self._build_person_from_row(cursor, row)
+
+            # Caso row_factory não esteja setado, converte manualmente
+            if not isinstance(row, sqlite3.Row):
+                columns = [desc[0] for desc in cursor.description]
+                row = {columns[i]: row[i] for i in range(len(columns))}
+
+            # Cria o objeto dinamicamente
+            return cls(**row)
 
         except sqlite3.Error as e:
-            print(f"Erro ao buscar pessoa (ID: {personID}): {e}")
+            print(f"[ERRO] Falha no get genérico para {table}: {e}")
             return None
 
-    def getPersonByEmail(self, email: str) -> Optional[Person]:
-        """
-        Retorna um objeto Person (ou Manager/Director) pelo Email.
-        """
+    def _get_many(self, table: str, field: str, value: str, cls):
         try:
             cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM person WHERE email = ?", (email,))
-            row = cursor.fetchone()
-            
-            if not row:
-                print(f"[AVISO] Nenhuma pessoa encontrada com o Email {email}.")
-                return None
-                
-            return self._build_person_from_row(cursor, row)
+            query = f"SELECT * FROM {table} WHERE {field} = ?;"
+            cursor.execute(query, (value,))
+            rows = cursor.fetchall()
+
+            results = []
+            for row in rows:
+                if not isinstance(row, sqlite3.Row):
+                    columns = [desc[0] for desc in cursor.description]
+                    row = {columns[i]: row[i] for i in range(len(columns))}
+                results.append(cls(**row))
+
+            return results
 
         except sqlite3.Error as e:
-            print(f"Erro ao buscar pessoa (Email: {email}): {e}")
-            return None
-
-    def getCompanyByID(self, companyID: str) -> Optional[Company]:
-        """Retorna um objeto Company pelo ID, hidratando suas listas de junção."""
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM company WHERE id = ?", (companyID,))
-            row = cursor.fetchone()
-            if not row: 
-                return None
-            
-            # CORREÇÃO: Criar dicionário manualmente usando description
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            
-            # Hidratação 1: 'directorsIds' (N-N)
-            cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (companyID,))
-            # CORREÇÃO: Usar índice 0 em vez de chave de dicionário
-            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]
-            
-            # Hidratação 2: 'rpeIds' (N-N)
-            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
-            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]
-
-            # Hidratação 3: 'departmentsIds' (1-N)
-            cursor.execute("SELECT id FROM department WHERE companyID = ?", (companyID,))
-            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]
-            
-            return Company(**params)
-        
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar company (ID: {companyID}): {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir Company: {e}")
-            return None
-                
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar company (ID: {companyID}): {e}")
-            return None
+            print(f"[ERRO] Falha no get many para {table}: {e}")
+            return []
     
-    def getCompanyByCnpj(self, cnpj: str) -> Optional[Company]:
-        """Retorna um objeto Company pelo cnpj, hidratando suas listas de junção."""
+    def _hydrateOneToMany(self, parent_id: str, join_table: str, parent_fk: str, child_fk: str) -> list[str]:
+        """
+        Busca IDs relacionados em uma tabela de junção.
+        """
         try:
             cursor = self.__db.cursor()
-            
-            # Buscar pela coluna 'cnpj'
-            cursor.execute("SELECT * FROM company WHERE cnpj = ?", (cnpj,))
-            row = cursor.fetchone()
-            
-            if not row: 
-                print(f"[AVISO] Nenhuma empresa encontrada com o CNPJ {cnpj}.")
-                return None
-            
-            # CORREÇÃO: Criar dicionário manualmente usando description
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            
-            # Extrair o ID da empresa
-            company_id = params["id"] 
-            
-            # --- Hidratação usando o company_id ---
-            
-            # Buscar directors
-            cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (company_id,))
-            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
-            
-            # Buscar RPEs
-            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (company_id,))
-            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
-            
-            # Buscar departments
-            cursor.execute("SELECT id FROM department WHERE companyID = ?", (company_id,))
-            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
-            
-            return Company(**params)
+            query = f"SELECT {child_fk} FROM {join_table} WHERE {parent_fk} = ?;"
+            cursor.execute(query, (parent_id,))
+            return [row[0] for row in cursor.fetchall()]
+        except:
+            return []
 
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar company (CNPJ: {cnpj}): {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir Company: {e}")
-            return None
+    def _hydrateCompany(self, company:Company):
+        cid = company.id
+        company.directorIds = self._hydrateOneToMany(cid, "company_directors", "companyID", "personID")
+        company.rpeIds       = self._hydrateOneToMany(cid, "company_rpes", "companyID", "rpeID")
+        company.departmentIds = self._hydrateOneToMany(cid, "department", "companyID", "id")
+        return company
 
-    def getDepartmentByID(self, departmentID: str) -> Optional[Department]:
-        """Retorna um objeto Department pelo ID, hidratando suas listas de junção."""
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM department WHERE id = ?", (departmentID,))
-            row = cursor.fetchone()
-            if not row: 
-                return None
-            
-            # CORREÇÃO: Criar dicionário manualmente usando description
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            
-            # Hidratação 1: 'rpeIds' (N-N)
-            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
-            params["rpeIds"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
+    def _hydrateDepartment(self, department: Department):
+        did = department.id
+        department.teamIds = self._hydrateOneToMany(did, "team", "departmentID", "id")
+        department.rpeIds   = self._hydrateOneToMany(did, "department_rpes", "departmentID", "rpeID")
+        return department
 
-            # Hidratação 2: 'teamsIds' (1-N)
-            cursor.execute("SELECT id FROM team WHERE departmentID = ?", (departmentID,))
-            params["teamsIds"] = [r[0] for r in cursor.fetchall()]  # Usar índice 0
-            
-            return Department(**params)
+    def _hydrateTeam(self, team: Team):
+        tid = team.id
+        cursor = self.__db.cursor()
+        cursor.execute("SELECT id FROM person WHERE teamID = ?", (tid,))
+        team.employeeIDs = [row[0] for row in cursor.fetchall()]  # Nome correto
         
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar department (ID: {departmentID}): {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir Department: {e}")
-            return None
-
-    def getTeamByID(self, teamID: str) -> Optional[Team]:
-        """ 
-        Retorna um objeto Team pelo ID, hidratando suas listas de junção.
-        (Versão 1-para-N: busca employees na tabela 'person')
-        """
+        team.rpeIds = self._hydrateOneToMany(tid, "team_rpes", "teamID", "rpeID")
+        return team
+        
+    def _getRPEsFromRelation(self, relation_table: str, column: str, value: str) -> list[RPE]:
+        if not value:
+            return []
         try:
             cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM team WHERE id = ?", (teamID,))
-            row = cursor.fetchone()
-            if not row: 
-                print(f"[AVISO] Nenhum time encontrado com o ID {teamID}.")
-                return None
-            
-            # Usar dict(row) pode falhar se o cursor não for configurado
-            # para row_factory. Vamos usar o método seguro:
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            
-            # --- CORREÇÃO AQUI ---
-            # Hidratação 1: 'employeesIDs' (1-N, lendo da tabela 'person')
-            # Busca todas as Pessoas ONDE a FK teamID é este time.
-            cursor.execute("SELECT id FROM person WHERE teamID = ?", (teamID,))
-            
-            # Use o nome de parâmetro que o construtor de Team espera (ex: employeesIDs)
-            # CORREÇÃO: Usar índice 0
-            params["employeesIDs"] = [r[0] for r in cursor.fetchall()]
-            
-            # Hidratação 2: 'rpeIds' (N-N)
-            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
-            # CORREÇÃO: Usar índice 0 e o nome de parâmetro correto (RPEIDs)
-            params["RPEIDs"] = [r[0] for r in cursor.fetchall()] 
-            
-            # Assumindo que o construtor de Team espera 'employeesIDs' e 'RPEIDs'
-            return Team(**params)
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar time (ID: {teamID}): {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir Team (ID: {teamID}): {e}")
-            print(f"   Parâmetros: {params}")
-            return None
+            query = f"SELECT rpeID FROM {relation_table} WHERE {column} = ?"
+            cursor.execute(query, (value,))
 
-    def getRPEByID(self, rpeID: str) -> RPE | None:
-        """
-        Retorna um objeto RPE pelo ID, com hierarquia completa
-        (Objectives -> KPIs/KRs) usando os métodos já existentes.
-        """
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM rpe WHERE id = ?", (rpeID,))
-            row = cursor.fetchone()
-
-            if not row:
-                print(f"[AVISO] Nenhum RPE encontrado com ID {rpeID}.")
-                return None
-
-            # Cria o RPE com os dados mínimos
-            rpe = RPE(
-                description=row["description"],
-                responsibleID=row["responsibleID"],
-                date=row["date"],
-                id=row["id"]
-            )
-
-            return rpe
+            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
+            return [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
 
         except sqlite3.Error as e:
-            print(f"[ERRO] Falha ao buscar RPE (ID: {rpeID}): {e}")
-            return None
-
-
-    def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
-        """
-        Retorna um objeto Objective carregado a partir da tabela 'objective'.
-        Não tenta hidratar KPIs/KRs aqui — isso fica para Objective.getData(db).
-        """
+            print(f"[ERRO] Falha ao buscar RPEs na relação {relation_table}.{column}={value}: {e}")
+            return []
+   
+    def getMeasureByID(self, measureID: str) -> Optional[Union[KPI, KR]]:
         try:
             cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM objective WHERE id = ?", (objectiveID,))
-            row = cursor.fetchone()
-            if not row:
-                return None
-
-            # Monta dicionário coluna->valor de forma robusta
-            columns = [col[0] for col in cursor.description]
-            data = dict(zip(columns, row))
-
-            # Cria o objeto Objective usando os campos esperados pelo construtor
-            obj = Objective(
-                description=data.get("description"),
-                responsibleID=data.get("responsibleID"),
-                date=data.get("date"),
-                rpeID=data.get("rpeID"),
-                id=data.get("id")
-            )
-
-            return obj
-
-        except sqlite3.Error as e:
-            print(f"[ERRO] Falha ao buscar Objective (ID: {objectiveID}): {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Erro inesperado ao construir Objective (ID: {objectiveID}): {e}")
-            return None
-
-    def getKPIByID(self, kpiID: str) -> Optional[KPI]:
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM kpi WHERE id = ? AND goal IS NULL", (kpiID,))
+            cursor.execute("SELECT * FROM kpi WHERE id = ?", (measureID,))
             row = cursor.fetchone()
             if not row:
                 return None
 
             params = dict(zip([c[0] for c in cursor.description], row))
-
-            params["data"] = json.loads(params["data"]) if params.get("data") else []
-            params.pop("goal", None)
-
-            return KPI(**params)
-
-        except Exception as e:
-            print(f"[ERRO] Falha ao buscar KPI (ID: {kpiID}): {e}")
-            return None
-
-    def getKRByID(self, krID: str) -> Optional[KR]:
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM kpi WHERE id = ? AND goal IS NOT NULL", (krID,))
-            row = cursor.fetchone()
-            if not row:
-                return None
-
-            params = dict(zip([c[0] for c in cursor.description], row))
-
             params["data"] = json.loads(params["data"]) if params.get("data") else []
 
+            # Se goal é None → KPI
+            if params.get("goal") is None:
+                params.pop("goal", None)
+                return KPI(**params)
+
+            # Se goal tem valor → KR
             return KR(**params)
 
         except Exception as e:
-            print(f"[ERRO] Falha ao buscar KR (ID: {krID}): {e}")
+            print(f"[ERRO] Falha ao buscar Measure (ID: {measureID}): {e}")
             return None
+
+    def getPersonByID(self, personID: str) -> Optional[Person]:
+        return self._get_single("person", "id", personID, Person)
+
+    def getPersonByEmail(self, email: str) -> Optional[Person]:
+        return self._get_single("person", "email", email, Person)
+
+    def getCompanyByID(self, companyID: str) -> Optional[Company]:
+        company = self._get_single("company", "id", companyID, Company)
+        return self._hydrateCompany(company) if company else None
+
+    def getCompanyByCnpj(self, cnpj: str) -> Optional[Company]:
+        company = self._get_single("company", "cnpj", cnpj, Company)
+        return self._hydrateCompany(company) if company else None   
+    
+    def getCompanyByName(self, name: str):
+        company = self._get_single("company", "name", name, Company)
+        return self._hydrateCompany(company) if company else None  
+
+    def getDepartmentByID(self, departmentID: str) -> Optional[Department]:
+        department = self._get_single("department", "id", departmentID, Department)
+        return self._hydrateDepartment(department) if department else None
+
+    def getDepartmentByName(self, name: str) -> Optional[Department]:
+        department = self._get_single("department", "name", name, Department)
+        return self._hydrateDepartment(department) if department else None  
+
+    def getTeamByID(self, teamID: str) -> Optional[Team]:
+        team = self._get_single("team", "id", teamID, Team)
+        return self._hydrateTeam(team) if team else None
+
+    def getTeamByName(self, name: str) -> Optional[Team]:
+        team = self._get_single("team", "name", name, Team)
+        return self._hydrateTeam(team) if team else None
+
+    def getRPEByID(self, rpeID: str) -> Optional[RPE]:
+        return self._get_single("rpe", "id", rpeID, RPE)
+    
+    def getRPEByCompanyID(self, companyID: str) -> list[RPE]:
+        return self._getRPEsFromRelation("company_rpes", "companyID", companyID)
 
     def getRPEsByDepartmentID(self, departmentID: str) -> list[RPE]:
-        """
-        Retorna uma lista de objetos RPE associados a um departmentID.
-        """
-        if not departmentID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por DepartmentID {departmentID}: {e}")
-            return []
+        return self._getRPEsFromRelation("department_rpes", "departmentID", departmentID)
 
-    def getRPEByCompanyID(self, companyID: str) -> list[RPE]:
-        """
-        Retorna uma lista de objetos RPE associados a um companyID.
-        """
-        if not companyID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (companyID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por CompanyID {companyID}: {e}")
-            return []
-
-    def getRPEByObjectiveID(self, objectiveID: str) -> Optional[RPE]:
-        """
-        Retorna RPE associado a um objectiveID.
-        """
-        if not objectiveID:
-            return None
-        try:
-            obj = self.getObjectiveByID(objectiveID)
-            return self.getKPIByID(obj.rpeID)
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por ObjectiveID {objectiveID}: {e}")
-            return None
-    
     def getRPEsByTeamID(self, teamID: str) -> list[RPE]:
-        """
-        Retorna uma lista de objetos RPE associados a um teamID.
-        """
-        if not teamID:
-            return []
-        try:
-            cursor = self.__db.cursor()
-            # 1. Busca todos os IDs de RPE da tabela de junção
-            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
-            rpe_ids = [row["rpeID"] for row in cursor.fetchall()]
-            
-            # 2. Reutiliza o getRPEByID para construir cada RPE de forma segura (com hidratação)
-            #    Isso é um "list comprehension" que faz um loop e filtra Nones
-            rpes = [rpe for rpe in (self.getRPEByID(rid) for rid in rpe_ids) if rpe]
-            return rpes
-            
-        except sqlite3.Error as e:
-            print(f"Erro ao buscar RPEs por TeamID {teamID}: {e}")
-            return []  
-
-    def getRPEByKpiID(self, kpiID: str) -> Optional[RPE]:
-        """
-        Retorna RPE associado a um kpiID (ou krID)
-        """
-        kpi = self.getKPIByID(kpiID)
-        return self.getRPEByObjectiveID(kpi.objectiveID)
-        
-        
+        return self._getRPEsFromRelation("team_rpes", "teamID", teamID)
+       
     def getRPEsByEntity(self, entity_type: str, entity_id: str) -> list[RPE]:
         """
         Busca RPEs associados a um ID de entidade específico (Team, Department ou Company).
 
-        """
+        
         if not entity_id:
             print("[ALERTA] ID da entidade não fornecido.")
             return []
@@ -1142,127 +852,34 @@ class Database:
         else:
             print(f"[ERRO] Tipo de entidade '{entity_type}' não reconhecido.")
             return []
-        
-    def getCompanyByName(self, name: str) -> Optional[Company]:
-        """Retorna um objeto Company pelo nome, hidratando suas listas de junção."""
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM company WHERE name = ?", (name,))
-            row = cursor.fetchone()
-            if not row:
-                print(f"[AVISO] Nenhuma empresa encontrada com o nome '{name}'.")
-                return None
-            
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            company_id = params["id"]
-            
-            # Hidratação de listas de junção
-            cursor.execute("SELECT personID FROM company_directors WHERE companyID = ?", (company_id,))
-            params["directorsIDs"] = [r[0] for r in cursor.fetchall()]
-            
-            cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (company_id,))
-            params["RPEIDs"] = [r[0] for r in cursor.fetchall()]
-            
-            cursor.execute("SELECT id FROM department WHERE companyID = ?", (company_id,))
-            params["departmentsIDs"] = [r[0] for r in cursor.fetchall()]
-            
-            return Company(**params)
-
-        except sqlite3.Error as e:
-            print(f"[ERRO] Erro SQL ao buscar Company pelo nome '{name}': {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir Company pelo nome '{name}': {e}")
-            return None
-
-    def getDepartmentByName(self, name: str) -> Optional[Department]:
-        """Retorna um objeto Department pelo nome, hidratando suas listas de junção."""
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM department WHERE name = ?", (name,))
-            row = cursor.fetchone()
-            if not row:
-                print(f"[AVISO] Nenhum departamento encontrado com o nome '{name}'.")
-                return None
-            
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            departmentID = params["id"]
-            
-            # Hidratação
-            cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (departmentID,))
-            params["rpeIds"] = [r[0] for r in cursor.fetchall()]
-            
-            cursor.execute("SELECT id FROM team WHERE departmentID = ?", (departmentID,))
-            params["teamsIds"] = [r[0] for r in cursor.fetchall()]
-            
-            return Department(**params)
-
-        except sqlite3.Error as e:
-            print(f"[ERRO] Erro SQL ao buscar Department pelo nome '{name}': {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir Department pelo nome '{name}': {e}")
-            return None
-
-    def getTeamByName(self, name: str) -> Optional[Team]:
         """
-        Retorna um objeto Team pelo nome, hidratando suas listas de junção.
-        (Versão 1-para-N: busca employees na tabela 'person')
-        """
-        try:
-            cursor = self.__db.cursor()
-            cursor.execute("SELECT * FROM team WHERE name = ?", (name,))
-            row = cursor.fetchone()
-            if not row:
-                print(f"[AVISO] Nenhum time encontrado com o nome '{name}'.")
-                return None
-            
-            columns = [description[0] for description in cursor.description]
-            params = dict(zip(columns, row))
-            teamID = params["id"]
-            
-            # --- CORREÇÃO AQUI ---
-            # Hidratação 1: 'employeesIDs' (1-N, lendo da tabela 'person')
-            cursor.execute("SELECT id FROM person WHERE teamID = ?", (teamID,))
-            
-            # Use o nome de parâmetro que o construtor de Team espera (ex: employeesIDs)
-            # CORREÇÃO: Usar índice 0
-            params["employeesIDs"] = [r[0] for r in cursor.fetchall()]
-            
-            # Hidratação 2: 'rpeIds' (N-N)
-            cursor.execute("SELECT rpeID FROM team_rpes WHERE teamID = ?", (teamID,))
-            # CORREÇÃO: Usar índice 0 e o nome de parâmetro correto (RPEIDs)
-            params["RPEIDs"] = [r[0] for r in cursor.fetchall()] 
-            
-            # Assumindo que o construtor de Team espera 'employeesIDs' e 'RPEIDs'
-            return Team(**params)
+        pass
 
-        except sqlite3.Error as e:
-            print(f"[ERRO] Erro SQL ao buscar Team pelo nome '{name}': {e}")
-            return None
-        except Exception as e:
-            print(f"[ERRO] Falha ao construir Team pelo nome '{name}': {e}")
-            print(f"   Parâmetros: {params}")
-            return None
-        
+    def getObjectiveByID(self, objectiveID: str) -> Optional[Objective]:
+        return self._get_single("objective", "id", objectiveID, Objective)
+    
     def getObjectivesByRPE(self, rpeID: str):
         cursor = self.__db.cursor()
         cursor.execute("SELECT id FROM objective WHERE rpeID = ?", (rpeID,))
         return [row[0] for row in cursor.fetchall()]
+
+    def getKPIByID(self, kpiID: str) -> Optional[KPI]:
+        result = self.getMeasureByID(kpiID)
+        return result if isinstance(result, KPI) else None
 
     def getKPIsByObjective(self, objectiveID: str):
         cursor = self.__db.cursor()
         cursor.execute("SELECT id FROM kpi WHERE objectiveID = ? AND goal IS NULL", (objectiveID,))
         return [row[0] for row in cursor.fetchall()]
 
+    def getKRByID(self, krID: str) -> Optional[KR]:
+        result = self.getMeasureByID(krID)
+        return result if isinstance(result, KR) else None
+
     def getKRsByObjective(self, objectiveID: str):
         cursor = self.__db.cursor()
         cursor.execute("SELECT id FROM kpi WHERE objectiveID = ? AND goal IS NOT NULL", (objectiveID,))
         return [row[0] for row in cursor.fetchall()]
-
-
 
 # --- MÉTODOS DE MUDANÇA DE ESTADO ---
 
@@ -1330,41 +947,29 @@ class Database:
 
     def isObjectiveTeamOrDepartmentLevel(self, objectiveID: str) -> bool:
         """
-        Verifica se um Objetivo está associado a pelo menos um Team OU a pelo menos um Department.
-
-        Agora que não há mais a tabela rpe_objectives, usamos:
-        Objective -> RPE -> (Team OR Department)
+        Verifica se um Objective é Team-level ou Department-level,
+        verificando se o seu RPE associado está ligado a um Team ou Department.
         """
         try:
             cursor = self.__db.cursor()
 
-            # Busca o RPE associado ao Objective
+            # 1) Descobre o rpeID do Objective
             cursor.execute("SELECT rpeID FROM objective WHERE id = ?", (objectiveID,))
             row = cursor.fetchone()
-            if not row or not row["rpeID"]:
-                return False  # Objetivo não tem RPE associado
 
-            rpeID = row["rpeID"]
+            if not row:
+                # Se não existir RPE associado, não é Team/Department
+                return False
 
-            # Verifica se existe associação com Team ou Department
-            query = """
-                SELECT 1
-                FROM team_rpes
-                WHERE rpeID = ?
-                UNION
-                SELECT 1
-                FROM department_rpes
-                WHERE rpeID = ?
-                LIMIT 1;
-            """
-            cursor.execute(query, (rpeID, rpeID))
-            return cursor.fetchone() is not None
+            rpeID = row[0]
+
+            # 2) Reutiliza o método **correto** já existente
+            return self.isRPETeamOrDepartmentLevel(rpeID)
 
         except sqlite3.Error as e:
-            print(f"[ERRO] Falha ao verificar nível do Objetivo {objectiveID}: {e}")
+            print(f"[ERRO] Falha ao verificar nível do Objective {objectiveID}: {e}")
             return False
 
-    
     def isRPETeamOrDepartmentLevel(self, rpeID: str) -> bool:
         """
         Verifica se um RPE está associado a pelo menos um Team OU a pelo menos um Department,

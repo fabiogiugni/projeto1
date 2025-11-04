@@ -19,12 +19,8 @@ class Director(Person):
 
     def createUser(self, person: Person, db: 'Database'):
         db.addItem(person)
-        db.assignPersonToCompany(person.id,person.companyID)
-        db.assignPersonToDepartment(person.id,person.departmentID)
-        db.assignPersonToTeam(person.id,person.teamID)
 
     def deleteUser(self, person: Person, db: 'Database'):
-        db.cleanupPersonRelationships(person.id)
         db.deleteItemByObject(person)
     
     def createRPE(self, rpe: RPE, groupLevel: str, db: 'Database'):
@@ -42,7 +38,6 @@ class Director(Person):
             print("Group level inválido.")
     
     def deleteRPE(self, rpe: RPE, db: 'Database'):
-        db.cleanupDataRelationships(rpe.id, "RPE")
         db.deleteItemByObject(rpe)
 
     def getDepartment(self, db: 'Database'):
@@ -56,26 +51,20 @@ class Director(Person):
     
     def createObjective(self, obj: Objective, db: 'Database'):
         db.addItem(obj)
-        db.assignObjectiveToRPE(obj.rpeID, obj.id)
 
     def deleteObjective(self, obj: Objective, db: 'Database'):
-        db.cleanupDataRelationships(obj.id, obj.__class__.__name__)
         db.deleteItemByObject(obj)     
     
     def createKPI(self, kpi: KPI, db: 'Database'):
         db.addItem(kpi)
-        db.assignKPIToObjective(kpi.objectiveID, kpi.id)
 
     def deleteKPI(self, kpi: KPI, db: 'Database'):
-        db.cleanupDataRelationships(kpi.id, kpi.__class__.__name__)
         db.deleteItemByObject(kpi)
 
     def createKR(self, kr: KR, db: 'Database'):
         db.addItem(kr)
-        db.assignKPIToObjective(kr.objectiveID,kr.id)
     
-    def deleteKR(self, kr: KR, objectiveID: str, db: 'Database'):
-        db.cleanupDataRelationships(kr.id, kr.__class__.__name__)
+    def deleteKR(self, kr: KR, db: 'Database'):
         db.deleteItemByObject(kr)
 
     def collectIndicator(self, kpi: KPI, db: 'Database'):

@@ -6,11 +6,11 @@ if TYPE_CHECKING:
 
 class Person(Entity):
 
-    def __init__(self, name, cpf, companyID, departmentID=None, teamID=None, email="", password="", id=None):
+    def __init__(self, name, cpf, companyID, departmentID=None, role: str = "Employee", teamID=None, email="", password="", id=None):
         super().__init__(id)
         self._name = name
         self._cpf = cpf
-        self._role = "Employee"
+        self._role = role
         self._companyID = companyID
         self._departmentID = departmentID
         self._teamID = teamID
@@ -79,7 +79,7 @@ class Person(Entity):
         company = db.getCompanyByName(filter)
         if company is not None:
             rpes = []
-            for rpe_id in company.RPEIDs:
+            for rpe_id in company.rpeIds:
                 rpe = db.getRPEByID(rpe_id)
                 if rpe:
                     rpes.append(rpe)
@@ -99,7 +99,7 @@ class Person(Entity):
         team = db.getTeamByName(filter)
         if team is not None:
             rpes = []
-            for rpe_id in team.rpesIDs:
+            for rpe_id in team.rpeIds:
                 rpe = db.getRPEByID(rpe_id)
                 if rpe:
                     rpes.append(rpe)

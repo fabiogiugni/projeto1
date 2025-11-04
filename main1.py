@@ -87,7 +87,7 @@ def main():
     director.deleteResponsibleRpeId(rpe_team.id, db)
 
     # --- Deletar KR/KPI/Objective/RPE ---
-    director.deleteKR(kr, obj.id, db)
+    director.deleteKR(kr, db)
     director.deleteKPI(kpi, db)
     director.deleteObjective(obj, db)
     director.deleteRPE(rpe_team, db)

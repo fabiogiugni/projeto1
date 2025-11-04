@@ -26,13 +26,11 @@ class Manager(Person):
     def createObjective(self, obj: Objective, db: 'Database'):
         if db.isRPETeamOrDepartmentLevel(obj.rpeID):
             db.addItem(obj)
-            db.assignObjectiveToRPE(obj.rpeID, obj.id)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")
 
     def deleteObjective(self, obj: Objective, db: 'Database'):
         if db.isRPETeamOrDepartmentLevel(obj.rpeID):
-            db.cleanupDataRelationships(obj.id, obj.__class__.__name__)
             db.deleteItemByObject(obj)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")     
@@ -40,13 +38,11 @@ class Manager(Person):
     def createKPI(self, kpi: KPI, db: 'Database'):
         if db.isObjectiveTeamOrDepartmentLevel(kpi.objectiveID):
             db.addItem(kpi)
-            db.assignKPIToObjective(kpi.objectiveID, kpi.id)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")
 
     def deleteKPI(self, kpi: KPI, db: 'Database'):
         if db.isObjectiveTeamOrDepartmentLevel(kpi.objectiveID):
-            db.cleanupDataRelationships(kpi.id, kpi.__class__.__name__)
             db.deleteItemByObject(kpi)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")
@@ -54,13 +50,11 @@ class Manager(Person):
     def createKR(self, kr: KR, db: 'Database'):
         if db.isObjectiveTeamOrDepartmentLevel(kr.objectiveID):
             db.addItem(kr)
-            db.assignKPIToObjective(kr.objectiveID,kr.id)
         else:
             print("Erro ao adicionar KR: nível de acesso inválido.")
     
     def deleteKR(self, kr: KR, objectiveID: str, db: 'Database'):
         if db.isObjectiveTeamOrDepartmentLevel(objectiveID):
-            db.cleanupDataRelationships(kr.id, kr.__class__.__name__)
             db.deleteItemByObject(kr)
         else:
             print("Erro ao adicionar objetivo: nível de acesso inválido.")

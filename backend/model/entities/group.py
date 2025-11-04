@@ -7,22 +7,20 @@ if TYPE_CHECKING:
 
 class Group(Entity):
 
-    def __init__(self, name: str, id: str = None, RPEIDs: list[str] = None):
+    def __init__(self, name: str, id: str = None, rpeIds: list[str] = None):
         super().__init__(id)
         self._name = name
-        self._RPEIDs = RPEIDs if RPEIDs is not None else []
+        self._rpeIds = rpeIds if rpeIds is not None else []
 
     def addRPE(self, RPEID : str, db: 'Database'):
-        self._RPEIDs.append(RPEID)
-        db.updateItem(self)
+        self._rpeIds.append(RPEID)
 
     def deleteRPE(self, RPEID : str, db: 'Database'):
-        self._RPEIDs.remove(RPEID)
-        db.updateItem(self)
+        self._rpeIds.remove(RPEID)
 
     @property
-    def RPEIDs(self):
-        return self._RPEIDs
+    def rpeIds(self):
+        return self._rpeIds
 
     @property
     def name(self):
@@ -31,3 +29,7 @@ class Group(Entity):
     @property
     def id(self):
         return self._id
+    
+    @rpeIds.setter
+    def rpeIds(self, rpeIds : str):
+        self._rpeIds = rpeIds
