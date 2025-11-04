@@ -39,7 +39,7 @@ export default function Company() {
         </button>
       </div>
       {!selectedCompany ? (
-        "Escolha a empresa para ver a tabela"
+        "Escolha uma empresa para ver a tabela"
       ) : (
         <CommonPageTable
           data={dataToShowOnTable}
