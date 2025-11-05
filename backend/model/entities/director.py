@@ -1,8 +1,9 @@
 from .person import Person
+from .department import Department
+from .team import Team
 from .rpe import RPE
 from .objective import Objective
 from .kr import KR
-from .data import Data
 from .kpi import KPI
 from typing import TYPE_CHECKING
 
@@ -16,6 +17,18 @@ class Director(Person):
         super().__init__(**kwargs)
         self.__responsibleIDs = responsibleIds
         self._role = "Director"
+    
+    def createDepartment(self, department: Department, db: 'Database'):
+        db.addItem(department)
+        
+    def deleteDepartment(self, department: Department, db: 'Database'):
+        db.deleteItemByObject(department)
+
+    def createTeam(self, team: Team, db: 'Database'):
+        db.addItem(team)
+
+    def deleteTeam(self, team: Team, db: 'Database'):
+        db.deleteItemByObject(team)
 
     def createUser(self, person: Person, db: 'Database'):
         db.addItem(person)

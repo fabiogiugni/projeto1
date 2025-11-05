@@ -15,11 +15,9 @@ class Department(Group):
 
     def addTeam(self, teamID : str, db: 'Database'):
         self.__teamIds.append(teamID)
-        db.updateItem(self)
     
     def removeTeam(self, teamID : str, db: 'Database'):
         self.__teamIds.remove(teamID)
-        db.updateItem(self)
     
     def addRPE(self, RPEID : str, db: 'Database'):
         super().addRPE(RPEID,db)
@@ -44,3 +42,7 @@ class Department(Group):
     @directorID.setter
     def directorID(self, directorID : str):
         self.__directorID = directorID
+    
+    @teamIds.setter
+    def teamIds(self, teamIds : str):
+        self.__teamIds = teamIds

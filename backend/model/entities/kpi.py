@@ -15,11 +15,9 @@ class KPI(Data):
 
     def addData(self, data: float, db: 'Database'):
         self._data.append(data)
-        db.updateItem(self)
 
     def deleteData(self, data: float, db: 'Database'):
         self._data.remove(data)
-        db.updateItem(self)
 
     def getLastData(self):
         if not self._data:

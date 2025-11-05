@@ -82,6 +82,22 @@ async def create_user(user: UserCreate):
     DB.addItem(new_user)
     return {"message": "Usuário criado com sucesso!"}
 
+@app.put("/user_role/{id}/{role}")
+async def change_role(id :str, role : str):
+    user = DB.getPersonByID(id)
+
+    if user == None:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Usuário não encontrado"
+        )
+    else:
+        user.role = role
+        DB.updateItem(user)
+        return {"message": "Cargo mudado com sucesso"}
+
+
+
 
 # =====================
 #         RPE
@@ -312,4 +328,26 @@ async def delete_rpe(id : str):
     else:
         return {"message" : "item deletado com sucesso"}
 
+@app.put("/add_team_user/{team_id}/{user_id}")
+async def add_user_to_team(team_id : str, user_id : str):
+    team = DB.getTeamByID(team_id)
+    user = DB.getPersonByID(user_id)
+    if team == None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Equipe não encontrado"
+        )
+    elif user == None:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Usuário não encontrado"
+        )
+    else:
+        user.teamID(team_id)
+        team.addEmployee(user)
+
+        DB.updateItem(user)
+        DB.updateItem(team)
+
+        return {"message", "Membro adicionado na equipe"}
 

@@ -71,40 +71,9 @@ class Person(Entity):
         else:
             return False
     
-    def getRPEs(self, filter: str, db: 'Database'):
+    def getData(self, group_type: str, group_id: str, data_type: str, db: 'Database'):
         """
-        Retorna as RPEs associadas a uma Company, Department ou Team cujo nome corresponda ao filtro.
+        Retorna dados (RPE / Objective / KPI / KR) associados a Company, Department ou Team.
         """
-        # 1) Tentamos Company
-        company = db.getCompanyByName(filter)
-        if company is not None:
-            rpes = []
-            for rpe_id in company.rpeIds:
-                rpe = db.getRPEByID(rpe_id)
-                if rpe:
-                    rpes.append(rpe)
-            return rpes
-
-        # 2) Tentamos Department
-        department = db.getDepartmentByName(filter)
-        if department is not None:
-            rpes = []
-            for rpe_id in department.rpeIds:
-                rpe = db.getRPEByID(rpe_id)
-                if rpe:
-                    rpes.append(rpe)
-            return rpes
-
-        # 3) Tentamos Team
-        team = db.getTeamByName(filter)
-        if team is not None:
-            rpes = []
-            for rpe_id in team.rpeIds:
-                rpe = db.getRPEByID(rpe_id)
-                if rpe:
-                    rpes.append(rpe)
-            return rpes
-
-        # 4) Nenhum match
-        print(f"[AVISO] Nenhuma Company, Department ou Team encontrado com nome '{filter}'.")
-        return []
+        return db.getDataByEntity(group_type, group_id, data_type)
+        

@@ -95,7 +95,7 @@ def main():
     kr.addData(75.0, db)
 
     print("\n[Employee] listando RPEs do time...")
-    rpes_emp = emp.getRPEs("Time Alpha", db)
+    rpes_emp = emp.getData("Team", team.id, "RPE", db)
     for r in rpes_emp:
         print(" -", r.description)
 
