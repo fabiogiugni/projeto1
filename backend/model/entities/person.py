@@ -1,3 +1,4 @@
+import re
 from .entity import Entity
 from typing import TYPE_CHECKING
 # Usado para type hinting
