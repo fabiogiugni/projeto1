@@ -27,3 +27,7 @@
   color: #ccc;
   font-size: 0.9rem;
 }
+
+.error {
+  color: #ff8688;
+}
