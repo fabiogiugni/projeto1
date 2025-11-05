@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Company.module.css";
-import plusCircle from "../../assets/Plus-circle.svg";
 
 import { companies, departments } from "../../assets/testValues";
 
@@ -33,10 +32,6 @@ export default function Company() {
           options={departmentOptions}
           onChange={setSelectedCompany}
         />
-
-        <button className={styles.iconButton}>
-          <img src={plusCircle} alt="Plus Circle" />
-        </button>
       </div>
       {!selectedCompany ? (
         "Escolha uma empresa para ver a tabela"
