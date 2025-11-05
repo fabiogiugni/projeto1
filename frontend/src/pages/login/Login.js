@@ -1,31 +1,29 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Input, Button } from "../../components";
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
+import { UserContext } from "../../App";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
+  const { setUser } = useContext(UserContext);
   const navigate = useNavigate();
 
   async function login(e) {
     e.preventDefault();
 
-    console.log(email, password);
-
     const response = await fetch("http://localhost:8000/login", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
     const data = await response.json();
-    if (data.status == true) {
+    if (data.status === true) {
       sessionStorage.setItem("user", JSON.stringify(data.message));
+      setUser(data.message);
       navigate("/");
     } else {
       setError(true);
@@ -35,7 +33,6 @@ export default function Login() {
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
       <h1>Login</h1>
-
       <form className={styles.form} onSubmit={login}>
         <Input
           onInputChange={setEmail}
@@ -49,9 +46,7 @@ export default function Login() {
           type="password"
           error={error}
         />
-
         <Button text="Entrar" variant="light" type="submit" />
-
         {error && <div className={styles.error}>Email ou senha incorretos</div>}
       </form>
     </div>
