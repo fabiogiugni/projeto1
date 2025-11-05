@@ -14,7 +14,8 @@ class Team(Group):
         self.__departmentID = departmentID
 
     def addEmployee(self, employeeID : str, db: 'Database'):
-        self.__employeeIds.append(employeeID)
+        if employeeID not in self.__employeeIds:
+            self.__employeeIds.append(employeeID)
         db.updateItem(self)
 
     def removeEmployee(self, employeeID : str, db: 'Database'):
