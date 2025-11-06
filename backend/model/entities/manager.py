@@ -59,8 +59,9 @@ class Manager(Person):
         else:
             print("Erro ao deletar KR: nível de acesso inválido.")
 
-    def collectIndicator(self, kpi: KPI, db: 'Database'):
+    def collectIndicator(self, kpi: KPI, novo_dado: float, db: 'Database'):
         if kpi.responsibleID == self.id:
+            kpi.addData(novo_dado)
             db.updateItem(kpi)
         else:
             print("Erro ao coletar dado: nível de acesso inválido.")

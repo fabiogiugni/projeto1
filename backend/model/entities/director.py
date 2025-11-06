@@ -80,7 +80,8 @@ class Director(Person):
     def deleteKR(self, kr: KR, db: 'Database'):
         db.deleteItemByObject(kr)
 
-    def collectIndicator(self, kpi: KPI, db: 'Database'):
+    def collectIndicator(self, kpi: KPI, novo_dado: float, db: 'Database'):
+        kpi.addData(novo_dado)
         db.updateItem(kpi)
 
     def addResponsibleRpeId(self, rpdID: str, db: 'Database') -> None:
@@ -90,3 +91,7 @@ class Director(Person):
     def deleteResponsibleRpeId(self, rpdID: str, db: 'Database') -> None:
         self.__responsibleIDs.remove(rpdID)
         db.updateItem(self)
+    
+    def addPersonToTeam(self, person: Person, teamID:str , db: 'Database') -> None:
+        person.id = teamID
+        

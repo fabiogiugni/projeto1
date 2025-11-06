@@ -13,10 +13,10 @@ class KPI(Data):
         self._objectiveID = objectiveID
         self._data = data if data is not None else []
 
-    def addData(self, data: float, db: 'Database'):
+    def addData(self, data: float):
         self._data.append(data)
 
-    def deleteData(self, data: float, db: 'Database'):
+    def deleteData(self, data: float):
         self._data.remove(data)
 
     def getLastData(self):
