@@ -3,8 +3,6 @@ import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Departments.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
 
-import { teams, departments } from "../../assets/testValues";
-
 export default function Departments() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [searchedTeam, setSearchedTeam] = useState("");

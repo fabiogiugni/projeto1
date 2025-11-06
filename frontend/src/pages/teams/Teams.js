@@ -3,8 +3,6 @@ import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Teams.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
 
-import { persons, departments } from "../../assets/testValues";
-
 export default function Teams() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [searchedEmployee, setSearchedEmployee] = useState("");
