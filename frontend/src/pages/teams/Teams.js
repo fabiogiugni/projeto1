@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Teams.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
@@ -8,14 +8,19 @@ import { persons, departments } from "../../assets/testValues";
 export default function Teams() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [searchedEmployee, setSearchedEmployee] = useState("");
-
-  const departmentOptions = departments.map((department) => ({
-    label: department.name,
-    value: department.id,
-  }));
+  const [teamOptions, setTeamOptions] = useState("");
 
   let dataToShowOnTable = persons;
+  useEffect(() => {
+    async function fetchTeams() {
+      const response = await fetch(`http://localhost:8000/getAllTeams`);
 
+      const data = await response.json();
+      setTeamOptions(data.data);
+    }
+
+    fetchTeams();
+  }, [selectedTeam]);
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
       <h1>Equipe</h1>
@@ -26,11 +31,16 @@ export default function Teams() {
           placeHolder={"Digite o nome do funcionário"}
         />
 
-        <Select
-          title="Equipe"
-          options={departmentOptions}
-          onChange={setSelectedTeam}
-        />
+        {teamOptions && (
+          <Select
+            title="Equipe"
+            options={teamOptions.map((team) => ({
+              label: team._name,
+              value: team._id,
+            }))}
+            onChange={setSelectedTeam}
+          />
+        )}
 
         <button className={styles.iconButton}>
           <img src={plusCircle} alt="Plus Circle" />
