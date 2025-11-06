@@ -281,6 +281,12 @@ async def get_department_teams(id : str):
 # =====================
 #         TEAM
 # =====================
+@app.get("/getAllTeams")
+async def get_teams():
+    teams = DB.getTeams()
+    
+    return {"data": teams}
+
 @app.post("/team")
 async def create_team(team: TeamCreate):
     if not team.name or not team.departmentID:
@@ -290,16 +296,14 @@ async def create_team(team: TeamCreate):
     DB.addItem(new_team)
     return {"message": "Time criado com sucesso!"}
 
-@app.get("team_users/{id}")
+@app.get("/team_users/{id}")
 async def get_team_users(id : str):
     team = DB.getTeamByID(id)
 
     if team == None:
         raise HTTPException(status_code=404, detail="Equipe não encontrado")
-    users = [DB.getPersonByID(team.managerID)]
+    users = DB.getPersonsByTeamID(team.id)
 
-    for user_id in team.employeeIds:
-        users.append(DB.getPersonByID(user_id))
 
     return {"data" : users}
 

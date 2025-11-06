@@ -16,14 +16,16 @@ export default function TableRow({
     console.log("Item deleted!");
     // call your backend delete function here
   }
-
   return (
     <tr>
       <td className={styles.tableItem}>
-        <div>{data.name}</div>
-        {data.description && (
-          <div className={styles.description}>{data.description}</div>
-        )}
+        <div>{data._name}</div>
+        {data._description ||
+          (data._role && (
+            <div className={styles.description}>
+              {data._description || data._role}
+            </div>
+          ))}
       </td>
       <td className={`${styles.tableItem} ${styles.actionCell}`}>
         <div className={styles.actionButtons}>

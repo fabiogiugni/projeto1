@@ -882,7 +882,7 @@ class Database:
     def getRPEByID(self, rpeID: str) -> Optional[RPE]:
         return self._get_single("rpe", "id", rpeID, RPE)
     
-    def getRPEsByCompanyID(self, companyID: str) -> list[RPE]:
+    def getRPEsByCompanyID(self, companyID) -> list[RPE]:
         return self._getRPEsFromRelation("company_rpes", "companyID", companyID)
 
     def getRPEsByDepartmentID(self, departmentID: str) -> list[RPE]:
@@ -960,16 +960,36 @@ class Database:
             return krs
 
         return []
-    
-    def getDepartmentsByCompanyID(self, companyID: str) -> list[Department]:
+    def getTeams(self) -> list[Team]:
+        cursor = self.__db.cursor()
+        cursor.execute("SELECT * FROM team ")
+        rows = cursor.fetchall()
+
+        teams = []
+        for row in rows:
+            if not isinstance(row, sqlite3.Row):
+                columns = [desc[0] for desc in cursor.description]
+                row = {columns[i]: row[i] for i in range(len(columns))}
+                team = Team(**row)
+            else:
+                team = Team(**row)
+
+            # Hidratar (employeeIDs, rpeIds)
+            teams.append(self._hydrateTeam(team))
+        
+        return teams
+
+    def getDepartmentsByCompanyID(self, companyID: str ) -> list[Department]:
         """
         Retorna todos os departamentos pertencentes a uma empresa.
         """
+
+        print(companyID)
         try:
             cursor = self.__db.cursor()
             cursor.execute("SELECT * FROM department WHERE companyID = ?", (companyID,))
             rows = cursor.fetchall()
-
+            print(rows)
             departments = []
             for row in rows:
                 # Convert Row → dict caso necessário
