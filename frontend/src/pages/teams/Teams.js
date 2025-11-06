@@ -9,8 +9,8 @@ export default function Teams() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [searchedEmployee, setSearchedEmployee] = useState("");
   const [teamOptions, setTeamOptions] = useState("");
+  const [dataToShowOnTable, setDataToShowOnTable] = useState("");
 
-  let dataToShowOnTable = persons;
   useEffect(() => {
     async function fetchTeams() {
       const response = await fetch(`http://localhost:8000/getAllTeams`);
@@ -20,7 +20,23 @@ export default function Teams() {
     }
 
     fetchTeams();
+  }, []);
+
+  useEffect(() => {
+    async function fetchUsers() {
+      if (selectedTeam) {
+        const response = await fetch(
+          `http://localhost:8000/team_users/${selectedTeam}`
+        );
+        const data = await response.json();
+        setDataToShowOnTable(data.data);
+        console.log(data);
+      }
+    }
+
+    fetchUsers();
   }, [selectedTeam]);
+
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
       <h1>Equipe</h1>
@@ -46,7 +62,7 @@ export default function Teams() {
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
-      {!selectedTeam ? (
+      {!dataToShowOnTable ? (
         "Escolha uma equipe para ver a tabela "
       ) : (
         <CommonPageTable

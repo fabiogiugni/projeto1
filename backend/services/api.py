@@ -302,10 +302,8 @@ async def get_team_users(id : str):
 
     if team == None:
         raise HTTPException(status_code=404, detail="Equipe não encontrado")
-    users = [DB.getPersonByID(team.managerID)]
+    users = DB.getPersonsByTeamID(team.id)
 
-    for user_id in team.employeeIds:
-        users.append(DB.getPersonByID(user_id))
 
     return {"data" : users}
 
