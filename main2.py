@@ -36,36 +36,34 @@ def main():
         db.addItem(company)
 
         # Criar Diretor
-        director = Director(name="Ana Silva (Diretora)", cpf="123",
+        director = Director(name="Ana Silva", cpf="123456789-12",
                             companyID=company.id, departmentID=None, teamID=None,
                             email="ana@corp.com", password="123", responsibleIds=[])
-        director.createUser(director, db) # 
-        db.addDirectorToCompany(company.id, director.id) # (Método do DB, assumindo que existe)
+        director.createUser(director, db) 
 
         # Criar Departamento e atribuir a Diretora
         dept = Department(name="P&D", directorID=director.id, companyID=company.id)
-        db.addItem(dept)
-        db.assignPersonToDepartment(director.id, dept.id) # (Método do DB, atualiza o 'departmentID' da Ana)
+        director.createDepartment(dept,db)
         # Recarregar 'director' do DB para obter o departmentID atualizado
         director = db.getPersonByID(director.id)
         assert director.departmentID == dept.id, "Falha ao associar Diretor ao Departamento"
 
         # Criar Gerente
-        manager = Manager(name="Carlos Pereira (Gerente)", cpf="456",
+        manager = Manager(name="Carlos Pereira", cpf="789123456-12",
                             companyID=company.id, departmentID=dept.id,
                             email="carlos@corp.com", password="abc", responsibleIds=[])
         director.createUser(manager, db) # 
 
         # Criar Time e atribuir o Gerente
         team = Team(name="Time Alpha", managerID=manager.id, departmentID=dept.id)
-        db.addItem(team)
+        director.createTeam(team,db)
         db.assignPersonToTeam(manager.id, team.id) # (Método do DB, atualiza o 'teamID' do Carlos)
         # Recarregar 'manager' do DB
         manager = db.getPersonByID(manager.id)
         assert manager.teamID == team.id, "Falha ao associar Gerente ao Time"
 
         # Criar Funcionário
-        emp = Person(name="João Oliveira (Dev)", cpf="789",
+        emp = Person(name="João Oliveira", cpf="789789789-62",
                        companyID=company.id, departmentID=dept.id, teamID=team.id,
                        email="joao@corp.com", password="senha")
         director.createUser(emp, db) # 
@@ -202,39 +200,6 @@ def main():
         assert len(dados_comp) > 0, "getData (Company) falhou"
         assert dados_comp[0].id == rpe_company.id
         print("... OK! getData")
-
-                # --- EXTENSÃO DO TESTE: Criar 3 novos departamentos, com 2 times cada e 2 pessoas cada ---
-        print("--- Criando estrutura adicional de Departamentos, Times e Pessoas ---")
-
-        for i in range(1, 4):  # Dept 2, 3 e 4
-            dept_new = Department(name=f"Departamento {i}", directorID=director.id, companyID=company.id)
-            db.addItem(dept_new)
-            db.assignPersonToDepartment(director.id, dept_new.id)
-
-            for t in range(1, 3):  # 2 times por departamento
-                team_new = Team(name=f"Time {i}.{t}", managerID=None, departmentID=dept_new.id)
-                db.addItem(team_new)
-
-                # Criar gerente para o time
-                manager_new = Manager(
-                    name=f"Gerente {i}.{t}", cpf=f"900{i}{t}",
-                    companyID=company.id, departmentID=dept_new.id,
-                    email=f"gerente{i}{t}@corp.com", password="123", responsibleIds=[]
-                )
-                director.createUser(manager_new, db)
-                db.assignPersonToTeam(manager_new.id, team_new.id)
-
-                # Criar 2 funcionários no time
-                for p in range(1, 3):
-                    emp_new = Person(
-                        name=f"Funcionario {i}.{t}.{p}", cpf=f"800{i}{t}{p}",
-                        companyID=company.id, departmentID=dept_new.id, teamID=team_new.id,
-                        email=f"func{i}{t}{p}@corp.com", password="abc"
-                    )
-                    director.createUser(emp_new, db)
-
-        print("Estrutura adicional criada com sucesso!\n")
-
         
         print("\n=== ✅ Testes robustos concluídos com sucesso! ===")
 

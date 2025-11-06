@@ -960,6 +960,7 @@ class Database:
             return krs
 
         return []
+    
     def getTeams(self) -> list[Team]:
         cursor = self.__db.cursor()
         cursor.execute("SELECT * FROM team ")

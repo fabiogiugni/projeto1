@@ -104,33 +104,29 @@ def main():
                 director.createUser(employee, db)
 
 
-        # Criar RPEs para todos os Departamentos e Times
-    for dept_name, teams in estrutura.items():
-        # Recuperar o departamento recém-criado
-        dept = db.getDepartmentByName(dept_name)
-
-        # RPE do departamento
+            # Criar RPE do departamento
         rpe_dept = RPE(
             description=f"Planejamento Anual - {dept.name}",
             responsibleID=director.id,
             date="2025-01-10"
         )
-        director.createRPE(rpe_dept, "Department", db)
+        db.addItem(rpe_dept)
+        db.addRpeToDepartment(dept.id, rpe_dept.id)
 
+        # Criar RPE por time (com gerente já definido)
         for team_name in teams:
-            print(team_name)
             team = db.getTeamByName(team_name)
-
-            # Descobrir o gerente real do time
             manager = db.getPersonByID(team.managerID)
 
-            # RPE do time
             rpe_team = RPE(
                 description=f"Metas Operacionais - {team.name}",
                 responsibleID=manager.id,
                 date="2025-01-12"
             )
-            director.createRPE(rpe_team, "Team", db)
+            db.addItem(rpe_team)
+            db.addRpeToTeam(team.id, rpe_team.id)
+
+
 
 
     # Criar OKR estratégico de empresa
