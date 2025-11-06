@@ -93,5 +93,33 @@ class Director(Person):
         db.updateItem(self)
     
     def addPersonToTeam(self, person: Person, teamID:str , db: 'Database') -> None:
-        person.id = teamID
-        
+        person.teamID = teamID
+        db.assignPersonToTeam(person.id,teamID)
+    
+    def removePersonFromTeam(self, person: Person, db: 'Database') -> None:
+        person.teamID = None
+        db.unassignPersonToTeam(person.id)
+    
+    def addPersonToDepartment(self, person: Person, departmentID:str , db: 'Database') -> None:
+        person.departmentID = departmentID
+        db.assignPersonToDepartment(person)
+    
+    def removePersonFromTeam(self, person: Person, db: 'Database') -> None:
+        person.teamID = None
+        db.unassignPersonToDepartment(person)
+
+    def changeRole(self, person: Person, role: str, db: 'Database'): 
+        person.role = role
+        db.updateItem(person)
+    
+    def changeDepartmentDirector(self,department: Department, director: Person , db: 'Database'):
+        department.directorID = director.id
+        director.departmentID = department.id
+        db.updateItem(department)
+        db.updateItem(director)
+
+    def changeTeamManager(self, team: Team, manager: Person , db: 'Database'):
+        team.managerID = manager.id
+        manager.teamID = team.id
+        db.updateItem(team)
+        db.updateItem(manager)
