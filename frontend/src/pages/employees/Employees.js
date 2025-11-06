@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Employees.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
@@ -6,16 +6,18 @@ import plusCircle from "../../assets/Plus-circle.svg";
 import { persons, departments } from "../../assets/testValues";
 
 export default function Employees() {
-  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [dataToShowOnTable, setDataToShowOnTable] = useState("");
   const [searchedEmployee, setSearchedEmployee] = useState("");
 
-  const departmentOptions = departments.map((department) => ({
-    label: department.name,
-    value: department.id,
-  }));
+  useEffect(() => {
+    async function fetchUsers() {
+      const response = await fetch(`http://localhost:8000/getAllEmployees`);
+      const data = await response.json();
+      setDataToShowOnTable(data.data);
+    }
 
-  /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = persons;
+    fetchUsers();
+  }, []);
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -27,24 +29,20 @@ export default function Employees() {
           placeHolder={"Digite o nome do funcionário"}
         />
 
-        <Select
-          title="Departamento"
-          options={departmentOptions}
-          onChange={setSelectedDepartment}
-        />
-
         <button className={styles.iconButton}>
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
-
-      <CommonPageTable
-        data={dataToShowOnTable}
-        type={"employees"}
-        hasEditFunction={true}
-        hasDeleteFunction={true}
-        deleteText="Tem certeza que deseja deletar o funciário?"
-      />
+      {dataToShowOnTable && (
+        <CommonPageTable
+          data={dataToShowOnTable}
+          type={"employees"}
+          hasEditFunction={true}
+          hasDeleteFunction={true}
+          deleteText="Tem certeza que deseja deletar o funciário?"
+          showDepartment={true}
+        />
+      )}
     </div>
   );
 }

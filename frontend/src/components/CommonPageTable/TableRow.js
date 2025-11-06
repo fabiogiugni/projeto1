@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./TableRow.module.css";
 import EditButton from "../../assets/Edit.svg";
 import DeleteButton from "../../assets/Delete.svg";
@@ -9,13 +9,23 @@ export default function TableRow({
   hasEditFunction,
   hasDeleteFunction,
   deleteText,
+  showDepartment,
+  handleDelete = () => console.log("Deleted"),
 }) {
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
-
-  function handleDelete() {
-    console.log("Item deleted!");
-    // call your backend delete function here
-  }
+  const [department, setDepartment] = useState("");
+  useEffect(() => {
+    if (showDepartment) {
+      async function fetchdepartment() {
+        const response = await fetch(
+          `http://localhost:8000/department/${data._departmentID}`
+        );
+        const jsonResponse = await response.json();
+        setDepartment(jsonResponse.data);
+      }
+      fetchdepartment();
+    }
+  }, []);
   return (
     <tr>
       <td className={styles.tableItem}>
@@ -27,6 +37,7 @@ export default function TableRow({
             </div>
           ))}
       </td>
+      {showDepartment && <td className={styles.tableItem}>{department}</td>}
       <td className={`${styles.tableItem} ${styles.actionCell}`}>
         <div className={styles.actionButtons}>
           {hasEditFunction && (
