@@ -4,15 +4,24 @@ def test_relations():
     DB = Database("backend/model/database/database.db")  # ou o caminho real do seu DB
 
     # ====== CONFIGURE AQUI ======
-    test_company_id = "220df9db-b89a-4af5-9815-b51b78f52934"
-    test_department_id = "36441afd-c701-4676-ab6d-477a62b9d52d"
-    test_team_id = "5b6c4528-27bc-441e-8316-9178804714f4"
+    test_company_id = "1c750f37-9421-4a64-a3c5-46c555155cb2"
+    test_department_id = "9d31406e-2ad5-4e2c-ae16-7789f9c97213"
+    test_team_id = "6f061dec-f873-4b8f-9dcf-5d635467168b"
     # ============================
 
     print("\n=== Testando Departamentos da Empresa ===")
     departments = DB.getDepartmentsByCompanyID(test_company_id)
     for dep in departments:
+        
         print(f"- {dep.id} | {dep.name} | companyID={dep.companyID}")
+
+    print("\n=== Testando Times da Empresa ===")
+    departments = DB.getDepartmentsByCompanyID(test_company_id)
+    teams = []
+    for dep in departments:
+        teams += DB.getTeamsByDepartmentID(dep.id)
+    for team in teams:
+        print(f"- {team.id} | {team.name} | departmentID={team.departmentID}")
 
     print("\n=== Testando Times do Departamento ===")
     teams = DB.getTeamsByDepartmentID(test_department_id)

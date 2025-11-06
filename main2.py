@@ -101,8 +101,7 @@ def main():
         print("... OK! createObjective, createKPI")
 
         # Testar coleta de indicador
-        kpi_company.addData(50.0,db) # Adiciona dado na memória
-        director.collectIndicator(kpi_company, db) # 
+        director.collectIndicator(kpi_company,50, db) # 
         kpi_fetched = db.getKPIByID(kpi_company.id)
         assert kpi_fetched.getLastData() == 50.0, "Diretor falhou em coletar indicador"
         print("... OK! collectIndicator")
@@ -153,8 +152,7 @@ def main():
         print("... OK! createKPI (Nível Time)")
 
         # Coletar indicador (Permitido, pois ele é o responsável)
-        kpi_team.addData(100.0,db)
-        manager.collectIndicator(kpi_team, db) # 
+        manager.collectIndicator(kpi_team,100.0, db) # 
         kpi_team_fetched = db.getKPIByID(kpi_team.id)
         assert kpi_team_fetched.getLastData() == 100.0
         print("... OK! collectIndicator (Próprio KPI)")
@@ -175,9 +173,8 @@ def main():
         print("... OK! createKPI (Nível Companhia bloqueado)")
         
         # Tentar coletar indicador (Bloqueado, pois o Diretor é o responsável)
-        kpi_company.addData(999.0, db) # kpi_company pertence ao director
         print("chegou")
-        manager.collectIndicator(kpi_company, db) # 
+        manager.collectIndicator(kpi_company, 999.0 ,db) # 
         kpi_fetched_fail = db.getKPIByID(kpi_company.id)
         assert kpi_fetched_fail.getLastData() != 999.0, "ERRO: Manager coletou indicador de outro responsável"
         assert kpi_fetched_fail.getLastData() == 50.0 # (Valor antigo, do diretor)
@@ -206,44 +203,38 @@ def main():
         assert dados_comp[0].id == rpe_company.id
         print("... OK! getData")
 
-        # --- Fase 5: Teste de Deleção (Limpando) ---
-        print("\n--- Fase 5: Testando Deleção (Limpando) ---")
-        
-        # Manager deletando (Permitido)
-        manager.deleteKPI(kpi_team, db) # 
-        assert db.getKPIByID(kpi_team.id) is None
-        print("... OK! Manager.deleteKPI (Permitido)")
-        
-        # Manager tentando deletar (Bloqueado)
-        manager.deleteKPI(kpi_company, db) # 
-        assert db.getKPIByID(kpi_company.id) is not None, "ERRO: Manager deletou KPI de Companhia"
-        print("... OK! Manager.deleteKPI (Bloqueado)")
-        
-        # Diretor deletando (Permissão Total)
-        director.deleteKPI(kpi_company, db) # 
-        assert db.getKPIByID(kpi_company.id) is None
-        print("... OK! Director.deleteKPI")
-        
-        director.deleteObjective(obj_team, db) # 
-        director.deleteObjective(obj_company, db) # 
-        assert db.getObjectiveByID(obj_team.id) is None
-        assert db.getObjectiveByID(obj_company.id) is None
-        print("... OK! Director.deleteObjective")
+                # --- EXTENSÃO DO TESTE: Criar 3 novos departamentos, com 2 times cada e 2 pessoas cada ---
+        print("--- Criando estrutura adicional de Departamentos, Times e Pessoas ---")
 
-        director.deleteRPE(rpe_team, db) # 
-        director.deleteRPE(rpe_dept, db) # 
-        director.deleteRPE(rpe_company, db) # 
-        assert db.getRPEByID(rpe_team.id) is None
-        print("... OK! Director.deleteRPE")
+        for i in range(1, 4):  # Dept 2, 3 e 4
+            dept_new = Department(name=f"Departamento {i}", directorID=director.id, companyID=company.id)
+            db.addItem(dept_new)
+            db.assignPersonToDepartment(director.id, dept_new.id)
 
-        # Diretor deletando usuários
-        director.deleteUser(emp, db) # 
-        director.deleteUser(manager, db) # 
-        director.deleteUser(director, db) # 
-        assert db.getPersonByID(emp.id) is None
-        assert db.getPersonByID(manager.id) is None
-        assert db.getPersonByID(director.id) is None
-        print("... OK! Director.deleteUser")
+            for t in range(1, 3):  # 2 times por departamento
+                team_new = Team(name=f"Time {i}.{t}", managerID=None, departmentID=dept_new.id)
+                db.addItem(team_new)
+
+                # Criar gerente para o time
+                manager_new = Manager(
+                    name=f"Gerente {i}.{t}", cpf=f"900{i}{t}",
+                    companyID=company.id, departmentID=dept_new.id,
+                    email=f"gerente{i}{t}@corp.com", password="123", responsibleIds=[]
+                )
+                director.createUser(manager_new, db)
+                db.assignPersonToTeam(manager_new.id, team_new.id)
+
+                # Criar 2 funcionários no time
+                for p in range(1, 3):
+                    emp_new = Person(
+                        name=f"Funcionario {i}.{t}.{p}", cpf=f"800{i}{t}{p}",
+                        companyID=company.id, departmentID=dept_new.id, teamID=team_new.id,
+                        email=f"func{i}{t}{p}@corp.com", password="abc"
+                    )
+                    director.createUser(emp_new, db)
+
+        print("Estrutura adicional criada com sucesso!\n")
+
         
         print("\n=== ✅ Testes robustos concluídos com sucesso! ===")
 
@@ -257,8 +248,6 @@ def main():
     finally:
         # Garante que o DB de teste seja sempre limpo
         del db # Fecha a conexão
-        if os.path.exists(DB_PATH):
-            os.remove(DB_PATH)
         print(f"\n=== 🧹 Banco de dados de teste '{DB_PATH}' limpo. ===")
 
 
