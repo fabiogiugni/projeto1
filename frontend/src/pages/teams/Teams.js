@@ -37,7 +37,7 @@ export default function Teams() {
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
-      <h1>Equipe</h1>
+      <h1>Times do departamento</h1>
 
       <div className={styles.inputContainer}>
         <Input
@@ -64,6 +64,7 @@ export default function Teams() {
         "Escolha uma equipe para ver a tabela "
       ) : (
         <CommonPageTable
+          name="Funcionários da equipe"
           data={dataToShowOnTable}
           type={"teams"}
           hasEditFunction={true}

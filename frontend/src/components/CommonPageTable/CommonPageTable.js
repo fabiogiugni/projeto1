@@ -7,6 +7,7 @@ export default function CommonPageTable({
   type,
   hasEditFunction,
   hasDeleteFunction,
+  name = "Nome",
   deleteText = "Tem certeza que deseja deletar? Os dados não poderão ser recuperados.",
 }) {
   console.log(data);
@@ -14,7 +15,7 @@ export default function CommonPageTable({
     <table className={styles.tableBackground}>
       <tbody>
         <tr>
-          <th className={styles.headerTitle}>Nome</th>
+          <th className={styles.headerTitle}>{name}</th>
           {hasEditFunction && <th className={styles.headerTitle}> </th>}
           {hasDeleteFunction && <th className={styles.headerTitle}> </th>}
         </tr>

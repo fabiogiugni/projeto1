@@ -31,6 +31,7 @@ export default function Company() {
         "Escolha uma empresa para ver a tabela"
       ) : (
         <CommonPageTable
+          name="Departamentos da empresa"
           data={dataToShowOnTable}
           type={"teams"}
           hasEditFunction={false}

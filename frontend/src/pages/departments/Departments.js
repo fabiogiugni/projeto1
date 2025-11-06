@@ -64,6 +64,7 @@ export default function Departments() {
         "Escolha um departamento para ver a tabela"
       ) : (
         <CommonPageTable
+          name="Equipes do departamento"
           data={dataToShowOnTable}
           type={"teams"}
           hasEditFunction={true}
