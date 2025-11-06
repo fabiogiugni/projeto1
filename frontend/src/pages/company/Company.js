@@ -1,21 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Company.module.css";
 
-import { companies, departments } from "../../assets/testValues";
-
 export default function Company() {
-  const [selectedCompany, setSelectedCompany] = useState("");
   const [searchedDepartment, setSearchedDepartment] = useState("");
+  const [dataToShowOnTable, setDataToShowOnTable] = useState("");
 
-  const departmentOptions = companies.map((department) => ({
-    label: department.name,
-    value: department.id,
-  }));
+  useEffect(() => {
+    async function fetchDepartaments() {
+      const response = await fetch(`http://localhost:8000/getAllDepartments`);
+      const data = await response.json();
+      setDataToShowOnTable(data.data);
+    }
 
-  console.log(searchedDepartment);
-  /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = departments;
+    fetchDepartaments();
+  }, []);
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -26,17 +25,12 @@ export default function Company() {
           onInputChange={setSearchedDepartment}
           placeHolder={"Digite o nome do departamento"}
         />
-
-        <Select
-          title="Empresa"
-          options={departmentOptions}
-          onChange={setSelectedCompany}
-        />
       </div>
-      {!selectedCompany ? (
+      {!dataToShowOnTable ? (
         "Escolha uma empresa para ver a tabela"
       ) : (
         <CommonPageTable
+          name="Departamentos da empresa"
           data={dataToShowOnTable}
           type={"teams"}
           hasEditFunction={false}

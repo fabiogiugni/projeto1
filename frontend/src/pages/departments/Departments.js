@@ -1,21 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CommonPageTable, Input, Select } from "../../components";
 import styles from "./Departments.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
 
-import { teams, departments } from "../../assets/testValues";
-
 export default function Departments() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [searchedTeam, setSearchedTeam] = useState("");
+  const [departamentOptions, setDepartamentOptions] = useState("");
+  const [dataToShowOnTable, setDataToShowOnTable] = useState("");
 
-  const departmentOptions = departments.map((department) => ({
-    label: department.name,
-    value: department.id,
-  }));
+  useEffect(() => {
+    async function fetchDepartaments() {
+      const response = await fetch(`http://localhost:8000/getAllDepartments`);
 
-  /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = teams;
+      const data = await response.json();
+      setDepartamentOptions(data.data);
+    }
+
+    fetchDepartaments();
+  }, []);
+
+  useEffect(() => {
+    async function fetchTeams() {
+      if (selectedDepartment) {
+        const response = await fetch(
+          `http://localhost:8000/department_teams/${selectedDepartment}`
+        );
+        const data = await response.json();
+        setDataToShowOnTable(data.data);
+      }
+    }
+
+    fetchTeams();
+  }, [selectedDepartment]);
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -26,21 +43,26 @@ export default function Departments() {
           onInputChange={setSearchedTeam}
           placeHolder={"Digite o nome da equipe"}
         />
-
-        <Select
-          title="Departamento"
-          options={departmentOptions}
-          onChange={setSelectedDepartment}
-        />
+        {departamentOptions && (
+          <Select
+            title="Departamento"
+            options={departamentOptions.map((team) => ({
+              label: team._name,
+              value: team._id,
+            }))}
+            onChange={setSelectedDepartment}
+          />
+        )}
 
         <button className={styles.iconButton}>
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
-      {!selectedDepartment ? (
+      {!dataToShowOnTable ? (
         "Escolha um departamento para ver a tabela"
       ) : (
         <CommonPageTable
+          name="Equipes do departamento"
           data={dataToShowOnTable}
           type={"teams"}
           hasEditFunction={true}
