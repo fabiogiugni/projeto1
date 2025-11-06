@@ -11,7 +11,6 @@ export default function Company() {
       const response = await fetch(`http://localhost:8000/getAllDepartments`);
       const data = await response.json();
       setDataToShowOnTable(data.data);
-      console.log(data);
     }
 
     fetchDepartaments();

@@ -9,15 +9,16 @@ export default function CommonPageTable({
   hasDeleteFunction,
   name = "Nome",
   deleteText = "Tem certeza que deseja deletar? Os dados não poderão ser recuperados.",
+  showDepartment = false,
 }) {
-  console.log(data);
   return (
     <table className={styles.tableBackground}>
       <tbody>
         <tr>
           <th className={styles.headerTitle}>{name}</th>
-          {hasEditFunction && <th className={styles.headerTitle}> </th>}
-          {hasDeleteFunction && <th className={styles.headerTitle}> </th>}
+          <th className={styles.headerTitle}>Departamento</th>
+          {hasEditFunction && <th className={styles.headerTitle}></th>}
+          {hasDeleteFunction && <th className={styles.headerTitle}></th>}
         </tr>
 
         {data.map((lineData) => (
@@ -28,6 +29,7 @@ export default function CommonPageTable({
               hasEditFunction={hasEditFunction}
               hasDeleteFunction={hasDeleteFunction}
               deleteText={deleteText}
+              showDepartment={showDepartment}
             />
           </>
         ))}

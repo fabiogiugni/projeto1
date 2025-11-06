@@ -28,7 +28,6 @@ export default function Teams() {
         );
         const data = await response.json();
         setDataToShowOnTable(data.data);
-        console.log(data);
       }
     }
 

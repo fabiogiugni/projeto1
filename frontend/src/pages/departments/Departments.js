@@ -14,7 +14,6 @@ export default function Departments() {
       const response = await fetch(`http://localhost:8000/getAllDepartments`);
 
       const data = await response.json();
-      console.log(data.data);
       setDepartamentOptions(data.data);
     }
 
@@ -29,7 +28,6 @@ export default function Departments() {
         );
         const data = await response.json();
         setDataToShowOnTable(data.data);
-        console.log(data);
       }
     }
 
