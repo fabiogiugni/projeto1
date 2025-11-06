@@ -67,6 +67,17 @@ async def login(data: Login):
     if user and user.verifyPassword(data.password):
         return {"status": True, "message": user}
     return {"status": False, "message": "Email ou senha incorretos"}
+   
+@app.get("/user_by_id/{id}")
+async def get_user_by_email(id : str):
+    user = DB.getPersonByID(id)
+    if user == None:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Usuário não encontrado"
+        )
+    else:
+        return {"data", user}
 
 
 @app.post("/user")
@@ -94,6 +105,15 @@ async def change_role(id: str, role: str):
     DB.updateItem(user)
     return {"message": "Cargo mudado com sucesso"}
 
+    if user == None:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Usuário não encontrado"
+        )
+    else:
+        user.role = role
+        DB.updateItem(user)
+        return {"message": "Cargo mudado com sucesso"}
 
 # =====================
 #         RPE
@@ -170,6 +190,43 @@ async def get_company(cnpj: str):
     return {"data": company}
 
 
+@app.get("/department_users/{id}")
+async def get_department_users(id : str):
+    dep = DB.getDepartmentByID(id)
+
+    if dep == None:
+        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+    usersIDS = []
+    usersIDS.append(dep.directorID())
+
+    for team_id in dep.teamIds:
+        team = DB.getTeamByID(team_id)
+        if team.managerID not in usersIDS:
+            usersIDS.append(team.managerID)
+        
+        for employee_id in team.employeeIds:
+            if employee_id not in usersIDS:
+                usersIDS.append(DB.getPersonByID(employee_id))
+    users = []
+    for user in users:
+        users.append(user)
+
+    return {"data" : users}
+
+@app.get("/company_departments/{id}")
+async def get_company_departments(id : str):
+    company = DB.getCompanyByID(id)
+
+    if company == None:
+        raise HTTPException(status_code=404, detail="Empresa não encontrado")
+    departmentsIDS = company.departmentIds
+    departments = []
+
+    for department_id in departmentsIDS:
+        departments.append(DB.getTeamByID(department_id))
+
+    return {"data" : departments}
+
 # =====================
 #      DEPARTMENT
 # =====================
@@ -181,6 +238,44 @@ async def create_department(department: DepartmentCreate):
     new_department = Department(department.name, department.companyID)
     DB.addItem(new_department)
     return {"message": "Departamento criado com sucesso!"}
+
+@app.get("/department_users/{id}")
+async def get_department_users(id : str):
+    dep = DB.getDepartmentByID(id)
+
+    if dep == None:
+        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+    usersIDS = []
+    usersIDS.append(dep.directorID())
+
+    for team_id in dep.teamIds:
+        team = DB.getTeamByID(team_id)
+        if team.managerID not in usersIDS:
+            usersIDS.append(team.managerID)
+        
+        for employee_id in team.employeeIds:
+            if employee_id not in usersIDS:
+                usersIDS.append(DB.getPersonByID(employee_id))
+    users = []
+    for user in users:
+        users.append(user)
+
+    return {"data" : users}
+
+@app.get("/department_teams/{id}")
+async def get_department_teams(id : str):
+    dep = DB.getDepartmentByID(id)
+
+    if dep == None:
+        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+    teamsIDS = dep.teamIds
+    teams = []
+
+    for team_id in teamsIDS:
+        teams.append(DB.getTeamByID(team_id))
+    
+
+    return {"data" : teams}
 
 
 # =====================
@@ -194,3 +289,50 @@ async def create_team(team: TeamCreate):
     new_team = Team(team.name, team.departmentID)
     DB.addItem(new_team)
     return {"message": "Time criado com sucesso!"}
+
+@app.get("team_users/{id}")
+async def get_team_users(id : str):
+    team = DB.getTeamByID(id)
+
+    if team == None:
+        raise HTTPException(status_code=404, detail="Equipe não encontrado")
+    users = [DB.getPersonByID(team.managerID)]
+
+    for user_id in team.employeeIds:
+        users.append(DB.getPersonByID(user_id))
+
+    return {"data" : users}
+
+
+# Deleta Item qualquer
+
+@app.delete("/delete/{id}")
+async def delete_rpe(id : str):
+    if DB.deleteItembyID(id) == False:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    else:
+        return {"message" : "item deletado com sucesso"}
+
+@app.put("/add_team_user/{team_id}/{user_id}")
+async def add_user_to_team(team_id : str, user_id : str):
+    team = DB.getTeamByID(team_id)
+    user = DB.getPersonByID(user_id)
+    if team == None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Equipe não encontrado"
+        )
+    elif user == None:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Usuário não encontrado"
+        )
+    else:
+        user.teamID(team_id)
+        team.addEmployee(user)
+
+        DB.updateItem(user)
+        DB.updateItem(team)
+
+        return {"message", "Membro adicionado na equipe"}
+

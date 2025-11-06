@@ -960,7 +960,133 @@ class Database:
             return krs
 
         return []
+    
+    def getDepartmentsByCompanyID(self, companyID: str) -> list[Department]:
+        """
+        Retorna todos os departamentos pertencentes a uma empresa.
+        """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM department WHERE companyID = ?", (companyID,))
+            rows = cursor.fetchall()
 
+            departments = []
+            for row in rows:
+                # Convert Row → dict caso necessário
+                if not isinstance(row, sqlite3.Row):
+                    columns = [desc[0] for desc in cursor.description]
+                    row = {columns[i]: row[i] for i in range(len(columns))}
+                    dept = Department(**row)
+                else:
+                    dept = Department(**row)
+
+                # Hidratar relações (teamIds, rpeIds)
+                departments.append(self._hydrateDepartment(dept))
+            
+            return departments
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao buscar departamentos da empresa {companyID}: {e}")
+            return []
+
+    def getTeamsByDepartmentID(self, departmentID: str) -> list[Team]:
+        """
+        Retorna todos os times pertencentes a um departamento.
+        """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT * FROM team WHERE departmentID = ?", (departmentID,))
+            rows = cursor.fetchall()
+
+            teams = []
+            for row in rows:
+                if not isinstance(row, sqlite3.Row):
+                    columns = [desc[0] for desc in cursor.description]
+                    row = {columns[i]: row[i] for i in range(len(columns))}
+                    team = Team(**row)
+                else:
+                    team = Team(**row)
+
+                # Hidratar (employeeIDs, rpeIds)
+                teams.append(self._hydrateTeam(team))
+            
+            return teams
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao buscar times do departamento {departmentID}: {e}")
+            return []
+
+    def getPersonsByTeamID(self, teamID: str) -> list[Person]:
+        """
+        Retorna todos os usuários que pertencem a um time.
+        """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("SELECT id FROM person WHERE teamID = ?", (teamID,))
+            rows = cursor.fetchall()
+
+            persons = []
+            for row in rows:
+                # row[0] contém o id da pessoa
+                person = self.getPersonByID(row[0])
+                if person:
+                    persons.append(person)
+
+            return persons
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao buscar pessoas do time {teamID}: {e}")
+            return []
+        
+    def getPersonsByDepartmentID(self, departmentID: str) -> list[Person]:
+        """
+        Retorna todas as pessoas que pertencem diretamente a um departamento
+        (independente de terem time atribuído ou não).
+        """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("""
+                SELECT id FROM person 
+                WHERE departmentID = ?
+            """, (departmentID,))
+            rows = cursor.fetchall()
+
+            persons = []
+            for row in rows:
+                person = self.getPersonByID(row[0])  # Hidrata Manager/Director corretamente
+                if person:
+                    persons.append(person)
+
+            return persons
+
+        except Exception as e:
+            print(f"[ERRO] Falha ao buscar pessoas do departamento {departmentID}: {e}")
+            return []
+
+    def getPersonsByCompanyID(self, companyID: str) -> list[Person]:
+        """
+        Retorna todas as pessoas que pertencem diretamente à empresa,
+        independente de departamento ou time.
+        """
+        try:
+            cursor = self.__db.cursor()
+            cursor.execute("""
+                SELECT id FROM person 
+                WHERE companyID = ?
+            """, (companyID,))
+            rows = cursor.fetchall()
+
+            persons = []
+            for row in rows:
+                person = self.getPersonByID(row[0])  # Hidrata Manager/Director corretamente
+                if person:
+                    persons.append(person)
+
+            return persons
+
+        except Exception as e:
+            print(f"[ERRO] Falha ao buscar pessoas da empresa {companyID}: {e}")
+            return []
 
 # --- MÉTODOS DE MUDANÇA DE ESTADO ---
 
