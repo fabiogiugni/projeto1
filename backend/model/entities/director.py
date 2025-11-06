@@ -91,3 +91,7 @@ class Director(Person):
     def deleteResponsibleRpeId(self, rpdID: str, db: 'Database') -> None:
         self.__responsibleIDs.remove(rpdID)
         db.updateItem(self)
+    
+    def addPersonToTeam(self, person: Person, teamID:str , db: 'Database') -> None:
+        person.id = teamID
+        
