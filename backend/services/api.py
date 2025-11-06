@@ -69,7 +69,7 @@ async def login(data: Login):
     return {"status": False, "message": "Email ou senha incorretos"}
    
 @app.get("/user_by_id/{id}")
-async def get_user_by_email(id : str):
+async def get_user_by_id(id : str):
     user = DB.getPersonByID(id)
     if user == None:
         raise HTTPException(
@@ -102,8 +102,6 @@ async def change_role(id: str, role: str):
     if user is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     user.role = role
-    DB.updateItem(user)
-    return {"message": "Cargo mudado com sucesso"}
 
     if user == None:
         raise HTTPException(
@@ -328,36 +326,88 @@ async def get_team_users(id : str):
 
     return {"data" : users}
 
+# =====================
+#      DELETE ENDPOINTS
+# =====================
 
-# Deleta Item qualquer
+@app.delete("/company/{id}")
+async def delete_company(id: str):
+    """Deleta uma empresa pelo ID"""
+    company = DB.getCompanyByID(id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    
+    DB.deleteItemByObject(company)
+    return {"message": "Empresa deletada com sucesso"}
 
-@app.delete("/delete/{id}")
-async def delete_rpe(id : str):
-    if DB.deleteItembyID(id) == False:
-        raise HTTPException(status_code=404, detail="Item não encontrado")
-    else:
-        return {"message" : "item deletado com sucesso"}
+@app.delete("/department/{id}")
+async def delete_department(id: str):
+    """Deleta um departamento pelo ID"""
+    department = DB.getDepartmentByID(id)
+    if department is None:
+        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+    
+    DB.deleteItemByObject(department)
+    return {"message": "Departamento deletado com sucesso"}
 
-@app.put("/add_team_user/{team_id}/{user_id}")
-async def add_user_to_team(team_id : str, user_id : str):
-    team = DB.getTeamByID(team_id)
-    user = DB.getPersonByID(user_id)
-    if team == None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Equipe não encontrado"
-        )
-    elif user == None:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Usuário não encontrado"
-        )
-    else:
-        user.teamID(team_id)
-        team.addEmployee(user)
+@app.delete("/team/{id}")
+async def delete_team(id: str):
+    """Deleta um time pelo ID"""
+    team = DB.getTeamByID(id)
+    if team is None:
+        raise HTTPException(status_code=404, detail="Time não encontrado")
+    
+    DB.deleteItemByObject(team)
+    return {"message": "Time deletado com sucesso"}
 
-        DB.updateItem(user)
-        DB.updateItem(team)
+@app.delete("/user/{id}")
+async def delete_user(id: str):
+    """Deleta um usuário pelo ID"""
+    user = DB.getPersonByID(id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    DB.deleteItemByObject(user)
+    return {"message": "Usuário deletado com sucesso"}
 
-        return {"message", "Membro adicionado na equipe"}
+@app.delete("/rpe/{id}")
+async def delete_rpe(id: str):
+    """Deleta um RPE pelo ID"""
+    rpe = DB.getRPEByID(id)
+    if rpe is None:
+        raise HTTPException(status_code=404, detail="RPE não encontrado")
+    
+    DB.deleteItemByObject(rpe)
+    return {"message": "RPE deletado com sucesso"}
+
+@app.delete("/objective/{id}")
+async def delete_objective(id: str):
+    """Deleta um objetivo pelo ID"""
+    objective = DB.getObjectiveByID(id)
+    if objective is None:
+        raise HTTPException(status_code=404, detail="Objetivo não encontrado")
+    
+    DB.deleteItemByObject(objective)
+    return {"message": "Objetivo deletado com sucesso"}
+
+@app.delete("/kpi/{id}")
+async def delete_kpi(id: str):
+    """Deleta um KPI pelo ID"""
+    kpi = DB.getKPIByID(id)
+    if kpi is None:
+        raise HTTPException(status_code=404, detail="KPI não encontrado")
+    
+    DB.deleteItemByObject(kpi)
+    return {"message": "KPI deletado com sucesso"}
+
+@app.delete("/kr/{id}")
+async def delete_kr(id: str):
+    """Deleta um KR pelo ID"""
+    kr = DB.getKRByID(id)
+    if kr is None:
+        raise HTTPException(status_code=404, detail="KR não encontrado")
+    
+    DB.deleteItemByObject(kr)
+    return {"message": "KR deletado com sucesso"}
+
 

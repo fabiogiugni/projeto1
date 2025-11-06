@@ -31,10 +31,18 @@ class Company(Group):
     @property
     def directorIds(self):
         return self.__directorIds
+    
+    @directorIds.setter
+    def directorIds(self, id : str):
+        self.__directorIds = id
 
     @property
     def departmentIds(self):
         return self.__departmentIds
+    
+    @departmentIds.setter
+    def departmentIds(self, ids : str):
+        self.__departmentIds = ids
 
     @property
     def cnpj(self):
