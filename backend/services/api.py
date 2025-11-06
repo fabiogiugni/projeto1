@@ -262,6 +262,13 @@ async def get_department_users(id : str):
 
     return {"data" : users}
 
+@app.get("/getAllDepartments") 
+async def getDepartmentsByCompanyID():
+    departaments = DB.getDepartmentsByCompanyID("1e9a26c8-fc43-4a17-b6fc-cb5129aed669")
+    
+    return {"data": departaments}
+
+    
 @app.get("/department_teams/{id}")
 async def get_department_teams(id : str):
     dep = DB.getDepartmentByID(id)
