@@ -9,6 +9,7 @@ export default function Departments() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [searchedTeam, setSearchedTeam] = useState("");
   const [departamentOptions, setDepartamentOptions] = useState("");
+  const [dataToShowOnTable, setDataToShowOnTable] = useState("");
 
   useEffect(() => {
     async function fetchDepartaments() {
@@ -22,7 +23,20 @@ export default function Departments() {
     fetchDepartaments();
   }, []);
 
-  let dataToShowOnTable = teams;
+  useEffect(() => {
+    async function fetchTeams() {
+      if (selectedDepartment) {
+        const response = await fetch(
+          `http://localhost:8000/department_teams/${selectedDepartment}`
+        );
+        const data = await response.json();
+        setDataToShowOnTable(data.data);
+        console.log(data);
+      }
+    }
+
+    fetchTeams();
+  }, [selectedDepartment]);
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -48,7 +62,7 @@ export default function Departments() {
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
-      {!selectedDepartment ? (
+      {!dataToShowOnTable ? (
         "Escolha um departamento para ver a tabela"
       ) : (
         <CommonPageTable
