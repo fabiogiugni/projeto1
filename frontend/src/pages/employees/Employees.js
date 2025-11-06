@@ -14,7 +14,6 @@ export default function Employees() {
     value: department.id,
   }));
 
-  console.log(searchedEmployee);
   /* espaço destinado a chamar a função do backend */
   let dataToShowOnTable = persons;
 
@@ -44,6 +43,7 @@ export default function Employees() {
         type={"employees"}
         hasEditFunction={true}
         hasDeleteFunction={true}
+        deleteText="Tem certeza que deseja deletar o funciário?"
       />
     </div>
   );

@@ -14,7 +14,6 @@ export default function Departments() {
     value: department.id,
   }));
 
-  console.log(searchedTeam);
   /* espaço destinado a chamar a função do backend */
   let dataToShowOnTable = teams;
 

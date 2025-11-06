@@ -23,3 +23,8 @@
   outline: none;
   border-color: #666;
 }
+
+.error {
+  border-color: #ff8688;
+  color: #ff8688;
+}
