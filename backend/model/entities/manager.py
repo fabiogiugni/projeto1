@@ -73,3 +73,17 @@ class Manager(Person):
     def deleteResponsibleRpeId(self, rpdID: str, db: 'Database') -> None:
         self.__responsibleIDs.remove(rpdID)
         db.updateItem(self)
+
+    def addPersonToTeam(self, person: Person, teamID:str , db: 'Database') -> None:
+        if person.teamID == self.teamID:
+            person.teamID = teamID
+            db.assignPersonToTeam(person.id,teamID)
+        else:
+            print("Erro ao adicionar pessoa: nível de acesso inválido.")
+    
+    def removePersonFromTeam(self, person: Person, db: 'Database') -> None:
+        if person.teamID == self.teamID:
+            person.teamID = None
+            db.unassignPersonToTeam(person.id)
+        else:
+            print("Erro ao adicionar pessoa: nível de acesso inválido.")
