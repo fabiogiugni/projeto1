@@ -37,7 +37,9 @@ export default function TableRow({
             </div>
           ))}
       </td>
-      {showDepartment && <td className={styles.tableItem}>{department}</td>}
+      {showDepartment && (
+        <td className={styles.tableItem}>{department._name}</td>
+      )}
       <td className={`${styles.tableItem} ${styles.actionCell}`}>
         <div className={styles.actionButtons}>
           {hasEditFunction && (
