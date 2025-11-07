@@ -93,6 +93,11 @@ async def create_user(user: UserCreate):
     DB.addItem(new_user)
     return {"message": "Usuário criado com sucesso!"}
 
+@app.get("/getAllCompanies")
+async def getAllCompanies():
+    companies = DB.getCompanyByID("c972a771-0718-4c75-bddf-dfa605b7b93d")
+    return {"data": companies}
+
 
 @app.put("/user_role/{id}/{role}")
 async def change_role(id: str, role: str):
@@ -112,6 +117,11 @@ async def change_role(id: str, role: str):
         user.role = role
         DB.updateItem(user)
         return {"message": "Cargo mudado com sucesso"}
+
+
+@app.put("/user_department/{id}/{idDepartment}")
+async def change_user_department(id: str, idDepartment: str):
+    DB.assignPersonToDepartment(id, idDepartment)
 
 # =====================
 #         RPE
@@ -271,13 +281,13 @@ async def get_department_users(id : str):
 
 @app.get("/getAllDepartments") 
 async def getDepartmentsByCompanyID():
-    departaments = DB.getDepartmentsByCompanyID("1e9a26c8-fc43-4a17-b6fc-cb5129aed669")
+    departaments = DB.getDepartmentsByCompanyID("c972a771-0718-4c75-bddf-dfa605b7b93d")
     
     return {"data": departaments}
 
 @app.get("/getAllEmployees") 
 async def getPersonsByCompanyID():
-    users = DB.getPersonsByCompanyID("1e9a26c8-fc43-4a17-b6fc-cb5129aed669")
+    users = DB.getPersonsByCompanyID("c972a771-0718-4c75-bddf-dfa605b7b93d")
     
     return {"data": users}
     

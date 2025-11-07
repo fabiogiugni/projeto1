@@ -31,7 +31,6 @@ export default function CommonPageTable({
               deleteText={deleteText}
               showDepartment={showDepartment}
             />
-            {console.log(lineData)}
           </>
         ))}
       </tbody>

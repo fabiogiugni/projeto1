@@ -1,25 +1,50 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HomeTable, Select } from "../../components";
 import styles from "./Home.module.css";
 
-import {
-  companies,
-  departments,
-  teams,
-  rpes,
-  objectives,
-  krs,
-  kpis,
-} from "../../assets/testValues";
-
 export default function Home() {
-  // Para o funcionamento da página, temos 2 inputs
-  // Um é o input de grupo que filtra por rpes, objetivo, etc. e o outro é o de dado, que filtra por empresa, departamento, etc
-  // Enquanto algum dos filtros estiver vazio, o backend não é chamado para puxar os dados
-
   const [selectedGroupType, setSelectedGroupType] = useState("");
+  const [groups, setGroups] = useState([]); // <- aqui guarda os grupos vindos do backend
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedDataType, setSelectedDataType] = useState("");
+
+  // ================================
+  // CHAMAR BACKEND AO MUDAR O TIPO
+  // ================================
+  useEffect(() => {
+    async function fetchGroups() {
+      if (!selectedGroupType) {
+        setGroups([]);
+        return;
+      }
+
+      try {
+        let url = "";
+
+        if (selectedGroupType === "company") {
+          // você *não tem* este endpoint ainda
+          // então vou deixar como exemplo
+          url = "http://localhost:8000/getAllCompanies";
+        }
+
+        if (selectedGroupType === "department") {
+          url = "http://localhost:8000/getAllDepartments";
+        }
+
+        if (selectedGroupType === "team") {
+          url = "http://localhost:8000/getAllTeams";
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+        setGroups(data.data);
+      } catch (err) {
+        console.error("Erro ao buscar grupos", err);
+      }
+    }
+
+    fetchGroups();
+  }, [selectedGroupType]);
 
   const groupTypeOptions = [
     { label: "Empresa", value: "company" },
@@ -34,26 +59,10 @@ export default function Home() {
     { label: "KPI", value: "kpi" },
   ];
 
-  let groupOptions = [];
-  if (selectedGroupType === "company")
-    groupOptions = companies.map((company) => ({
-      label: company.name,
-      value: company.id,
-    }));
-  if (selectedGroupType === "department")
-    groupOptions = departments.map((department) => ({
-      label: department.name,
-      value: department.id,
-    }));
-  if (selectedGroupType === "team")
-    groupOptions = teams.map((team) => ({ label: team.name, value: team.id }));
-
-  /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = [];
-  if (selectedDataType === "RPE") dataToShowOnTable = rpes;
-  else if (selectedDataType === "objective") dataToShowOnTable = objectives;
-  else if (selectedDataType === "kr") dataToShowOnTable = krs;
-  else dataToShowOnTable = kpis;
+  const groupOptions = groups.map((item) => ({
+    label: item.name,
+    value: item.id,
+  }));
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -65,20 +74,23 @@ export default function Home() {
           options={groupTypeOptions}
           onChange={setSelectedGroupType}
         />
+
         <Select
           title="Grupo"
           options={groupOptions}
           onChange={setSelectedGroup}
         />
+
         <Select
           title="Dado"
           options={dataTypeOptions}
           onChange={setSelectedDataType}
         />
       </div>
+
       {selectedDataType && selectedGroupType && selectedGroup ? (
         <HomeTable
-          data={dataToShowOnTable}
+          data={[]}
           type={selectedDataType}
           group={selectedGroup}
           groupType={selectedGroupType}

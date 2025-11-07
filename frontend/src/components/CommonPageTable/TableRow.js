@@ -14,6 +14,8 @@ export default function TableRow({
 }) {
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
   const [department, setDepartment] = useState("");
+
+  console.log(department);
   useEffect(() => {
     if (showDepartment) {
       async function fetchdepartment() {
@@ -37,7 +39,7 @@ export default function TableRow({
             </div>
           ))}
       </td>
-      {showDepartment && (
+      {showDepartment && department && (
         <td className={styles.tableItem}>{department._name}</td>
       )}
       <td className={`${styles.tableItem} ${styles.actionCell}`}>
