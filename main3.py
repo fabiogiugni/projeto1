@@ -67,11 +67,11 @@ def main():
     for dept_name, teams in estrutura.items():
 
         dept = Department(name=dept_name, directorID=director.id, companyID=company.id)
-        db.addItem(dept)
+        director.createDepartment(dept,db)
 
         for team_name in teams:
             team = Team(name=team_name, managerID=None, departmentID=dept.id)
-            db.addItem(team)
+            director.createTeam(team,db)
 
             # Cria gerente com nome real
             manager_name = nomes_managers[manager_index]
@@ -87,6 +87,8 @@ def main():
 
             director.createUser(manager, db)
             db.assignPersonToTeam(manager.id, team.id)
+            director.changeTeamManager(team, manager, db)
+            
 
             # Cria 2 funcionários com nomes reais
             for _ in range(2):
@@ -127,7 +129,7 @@ def main():
             db.addRpeToTeam(team.id, rpe_team.id)
 
 
-
+    db.assignPersonToDepartment(director,)
 
     # Criar OKR estratégico de empresa
     rpe = RPE("Planejamento Estratégico 2025", director.id, "2025-01-01")
