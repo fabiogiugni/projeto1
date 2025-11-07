@@ -91,21 +91,14 @@ git clone https://github.com/fabiogiugni/projeto1.git
 cd projeto1
 ```
 
-### 2️⃣ Criar ambiente virtual (opcional, mas recomendado)
+### 2️⃣ Criar ambiente virtual e instalar dependências do backend
 
 ```bash
-python -m venv venv
 source ativa_venv.sh  # Linux/macOS
 .\ativa_venv.ps1     # Windows
 ```
 
-### 3️⃣ Instalar dependências do backend
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4️⃣ Executar o servidor
+### 3️⃣ Executar o servidor
 
 ```bash
 python3 backend/main.py # Linux
@@ -115,7 +108,7 @@ python backend\main.py # Windows
 O backend será iniciado em:
 👉 [http://localhost:8000](http://localhost:8000)
 
-### 5️⃣ Executar o frontend
+### 4️ Executar o frontend
 
 ```bash
 cd frontend
@@ -200,3 +193,4 @@ Esse ciclo assegura uma comunicação consistente entre as camadas, com base em 
 | **Thales Eduardo Dias de Souza**    | 2024022647 |
 
 ---
+
