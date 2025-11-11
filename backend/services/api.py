@@ -449,3 +449,7 @@ async def get_data_by_entity(group_type: str, group_id: str, data_type: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.put("/user_team/{userID}/{teamID}")
+async def assign_user_to_team(userID: str, teamID: str):
+    DB.assignPersonToTeam(userID, teamID)
+    return {"message": f"Usuário {userID} adicionado à equipe {teamID} com sucesso"}
