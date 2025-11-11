@@ -9,10 +9,10 @@ export default function Departments() {
   const [departamentOptions, setDepartamentOptions] = useState("");
   const [employeeOptions, setEmployeeOptions] = useState([]);
   const [dataToShowOnTable, setDataToShowOnTable] = useState("");
+  const [allTeams, setAllTeams] = useState([]);
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
-
-  // ✅ carregar departamentos
+  // carregar departamentos
   useEffect(() => {
     async function fetchDepartaments() {
       const response = await fetch(`http://localhost:8000/getAllDepartments`);
@@ -22,7 +22,19 @@ export default function Departments() {
     fetchDepartaments();
   }, []);
 
-  // ✅ carregar funcionários
+  useEffect(() => {
+    async function filterTable() {
+      if (dataToShowOnTable) {
+        const filtered = allTeams.filter((team) =>
+          team._name.toLowerCase().includes(searchedTeam.toLowerCase())
+        );
+
+        setDataToShowOnTable(filtered);
+      }
+    }
+    filterTable();
+  }, [searchedTeam]);
+  // carregar funcionários
   useEffect(() => {
     async function fetchEmployees() {
       const response = await fetch(`http://localhost:8000/getAllEmployees`);
@@ -32,7 +44,7 @@ export default function Departments() {
     fetchEmployees();
   }, []);
 
-  // ✅ filtrar apenas managers
+  // filtrar apenas managers
   const managerOptions = employeeOptions
     .filter((u) => u._role === "Manager")
     .map((u) => ({
@@ -40,7 +52,7 @@ export default function Departments() {
       value: u._id,
     }));
 
-  // ✅ carregar times do departamento
+  // carregar times do departamento
   useEffect(() => {
     async function fetchTeams() {
       if (selectedDepartment) {
@@ -49,6 +61,7 @@ export default function Departments() {
         );
         const data = await response.json();
         setDataToShowOnTable(data.data);
+        setAllTeams(data.data);
       }
     }
     fetchTeams();
@@ -58,7 +71,7 @@ export default function Departments() {
     const payload = {
       name: data.teamName,
       departmentID: data.department,
-      managerID: data.managerID, // ✅ NOVO CAMPO
+      managerID: data.managerID,
     };
 
     console.log("PAYLOAD:", payload);
@@ -74,6 +87,18 @@ export default function Departments() {
     );
     const tableUpdated = await response.json();
     setDataToShowOnTable(tableUpdated.data);
+    setAllTeams(tableUpdated.data);
+  }
+
+  async function handleDeleteFunction() {
+    if (!selectedDepartment) return;
+
+    const response = await fetch(
+      `http://localhost:8000/department_teams/${selectedDepartment}`
+    );
+    const updated = await response.json();
+    setDataToShowOnTable(updated.data);
+    setAllTeams(updated.data);
   }
 
   return (
@@ -114,6 +139,7 @@ export default function Departments() {
           type={"teams"}
           hasEditFunction={true}
           hasDeleteFunction={true}
+          setOnDelete={handleDeleteFunction}
         />
       )}
 

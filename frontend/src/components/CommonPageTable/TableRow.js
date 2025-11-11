@@ -10,10 +10,35 @@ export default function TableRow({
   hasDeleteFunction,
   deleteText,
   showDepartment,
-  handleDelete = () => console.log("Deleted"),
+  type,
+  setOnDelete,
 }) {
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
   const [department, setDepartment] = useState("");
+
+  async function handleDelete() {
+    if (!data._id) return;
+
+    const endpoints = {
+      teams: `http://localhost:8000/team/${data._id}`,
+      employees: `http://localhost:8000/user/${data._id}`,
+      departments: `http://localhost:8000/department/${data._id}`,
+      company: `http://localhost:8000/company/${data._id}`,
+    };
+
+    const url = endpoints[type];
+
+    if (!url) {
+      console.error("DELETE endpoint not implemented for type:", type);
+      return;
+    }
+
+    await fetch(url, { method: "DELETE" });
+
+    setOnDelete();
+
+    setDeleteModalOpen(false);
+  }
 
   useEffect(() => {
     if (showDepartment) {

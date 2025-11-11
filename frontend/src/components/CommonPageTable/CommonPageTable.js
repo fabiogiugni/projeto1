@@ -10,6 +10,7 @@ export default function CommonPageTable({
   name = "Nome",
   deleteText = "Tem certeza que deseja deletar? Os dados não poderão ser recuperados.",
   showDepartment = false,
+  setOnDelete,
 }) {
   return (
     <table className={styles.tableBackground}>
@@ -30,6 +31,8 @@ export default function CommonPageTable({
               hasDeleteFunction={hasDeleteFunction}
               deleteText={deleteText}
               showDepartment={showDepartment}
+              type={type}
+              setOnDelete={setOnDelete}
             />
           </>
         ))}
