@@ -110,6 +110,8 @@ O backend será iniciado em:
 
 ### 4️ Executar o frontend
 
+Para rodar o frontend, é necessário instalar o Node.js de acordo com o guia a seguir: 👉 [https://nodejs.org/pt0](https://nodejs.org/pt)
+
 ```bash
 cd frontend
 npm install
@@ -193,4 +195,3 @@ Esse ciclo assegura uma comunicação consistente entre as camadas, com base em 
 | **Thales Eduardo Dias de Souza**    | 2024022647 |
 
 ---
-
