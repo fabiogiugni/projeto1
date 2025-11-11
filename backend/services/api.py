@@ -318,12 +318,13 @@ async def get_teams():
 
 @app.post("/team")
 async def create_team(team: TeamCreate):
-    if not team.name or not team.departmentID:
-        raise HTTPException(status_code=400, detail="Nome e departmentID são obrigatórios")
+    if not team.name or not team.departmentID or not team.managerID:
+        raise HTTPException(status_code=400, detail="Campos obrigatórios ausentes")
 
-    new_team = Team(team.name, team.departmentID)
+    new_team = Team(team.name, team.managerID, team.departmentID)
     DB.addItem(new_team)
-    return {"message": "Time criado com sucesso!"}
+    return {"message": "Time criado com sucesso!", "id": new_team.id}
+
 
 @app.get("/team_users/{id}")
 async def get_team_users(id : str):

@@ -9,39 +9,41 @@ export default function CreateModal({
   open,
   onOpenChange,
   onCreate,
-  fields,
+  fields, // [{ tipo, nome, label, options? }]
   title = "Criar",
 }) {
-  // Estado inicial dinâmico baseado nos campos
   const initialState = fields.reduce((acc, field) => {
     acc[field.nome] = "";
     return acc;
   }, {});
 
   const [formData, setFormData] = useState(initialState);
-  const [isValid, setIsValid] = useState(false);
+  const [touchedSubmit, setTouchedSubmit] = useState(false);
 
-  // Reset quando fecha
   useEffect(() => {
     if (!open) {
       setFormData(initialState);
+      setTouchedSubmit(false);
     }
   }, [open]);
-
-  // Validação automática
-  useEffect(() => {
-    const everyFieldFilled = Object.values(formData).every(
-      (value) => value !== "" && value !== null
-    );
-    setIsValid(everyFieldFilled);
-  }, [formData]);
 
   function handleChange(name, value) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
+  function isFormValid() {
+    return Object.values(formData).every(
+      (v) => v !== "" && v !== null && v !== undefined
+    );
+  }
+
   function handleSubmit() {
-    if (!isValid) return;
+    setTouchedSubmit(true);
+
+    if (!isFormValid()) {
+      return; // apenas mostra mensagem, sem enviar
+    }
+
     onCreate(formData);
     onOpenChange(false);
   }
@@ -70,31 +72,29 @@ export default function CreateModal({
             {fields.map((field) => (
               <div key={field.nome} className={styles.field}>
                 <label className={styles.label}>{field.label}</label>
-                <div>
-                  {field.tipo === "text" && (
-                    <Input
-                      placeHolder={field.label}
-                      onInputChange={(value) => handleChange(field.nome, value)}
-                    />
-                  )}
 
-                  {field.tipo === "select" && (
-                    <Select
-                      title={field.label}
-                      options={field.options || []}
-                      onChange={(value) => handleChange(field.nome, value)}
-                      modal={true}
-                    />
-                  )}
-                </div>
+                {field.tipo === "text" && (
+                  <Input
+                    placeHolder={field.label}
+                    onInputChange={(value) => handleChange(field.nome, value)}
+                  />
+                )}
+
+                {field.tipo === "select" && (
+                  <Select
+                    title={field.label}
+                    options={field.options || []}
+                    onChange={(value) => handleChange(field.nome, value)}
+                    modal={true}
+                  />
+                )}
               </div>
             ))}
           </div>
 
-          {!isValid && (
-            <div className={styles.errorMessage}>
-              Preencha todos os campos para continuar
-            </div>
+          {/* ✅ Mensagem aparece apenas quando o usuário tenta enviar */}
+          {touchedSubmit && !isFormValid() && (
+            <div className={styles.errorGlobal}>Preencha todos os campos</div>
           )}
 
           <div className={styles.actions}>
@@ -107,7 +107,6 @@ export default function CreateModal({
               onClick={handleSubmit}
               text="Criar"
               variant="blue"
-              disabled={!isValid}
             />
           </div>
         </Dialog.Content>

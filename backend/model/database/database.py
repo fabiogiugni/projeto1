@@ -284,13 +284,15 @@ class Database:
 
                 # --- Bloco Team ---
                 elif isinstance(item, Team):
+                    print("asdl")
                     query = """INSERT INTO team (
                                id, name, departmentID, managerID
                                ) VALUES (?, ?, ?, ?)"""
                     params = (item.id, item.name, item.departmentID, item.managerID)
                     # EXECUTA A QUERY PRINCIPAL AQUI
                     self.__db.execute(query, params)
-                    
+                    print("asdl")
+
                     # LÓGICA DE RELACIONAMENTO BASE PARA TEAM
                     # 1. Adiciona o time à lista de times do departamento
                     self.assignTeamToDepartment(item.id, item.departmentID)

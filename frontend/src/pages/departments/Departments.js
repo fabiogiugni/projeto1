@@ -7,22 +7,40 @@ export default function Departments() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [searchedTeam, setSearchedTeam] = useState("");
   const [departamentOptions, setDepartamentOptions] = useState("");
+  const [employeeOptions, setEmployeeOptions] = useState([]);
   const [dataToShowOnTable, setDataToShowOnTable] = useState("");
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
 
+  // ✅ carregar departamentos
   useEffect(() => {
     async function fetchDepartaments() {
       const response = await fetch(`http://localhost:8000/getAllDepartments`);
       const data = await response.json();
       setDepartamentOptions(data.data);
     }
-
     fetchDepartaments();
   }, []);
 
-  console.log(departamentOptions);
+  // ✅ carregar funcionários
+  useEffect(() => {
+    async function fetchEmployees() {
+      const response = await fetch(`http://localhost:8000/getAllEmployees`);
+      const data = await response.json();
+      setEmployeeOptions(data.data);
+    }
+    fetchEmployees();
+  }, []);
 
+  // ✅ filtrar apenas managers
+  const managerOptions = employeeOptions
+    .filter((u) => u._role === "Manager")
+    .map((u) => ({
+      label: u._name,
+      value: u._id,
+    }));
+
+  // ✅ carregar times do departamento
   useEffect(() => {
     async function fetchTeams() {
       if (selectedDepartment) {
@@ -33,7 +51,6 @@ export default function Departments() {
         setDataToShowOnTable(data.data);
       }
     }
-
     fetchTeams();
   }, [selectedDepartment]);
 
@@ -41,22 +58,22 @@ export default function Departments() {
     const payload = {
       name: data.teamName,
       departmentID: data.department,
+      managerID: data.managerID, // ✅ NOVO CAMPO
     };
 
-    console.log(payload);
+    console.log("PAYLOAD:", payload);
 
-    // await fetch("http://localhost:8000/team", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(payload),
-    // });
+    await fetch("http://localhost:8000/team", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-    // // refresh table
-    // const response = await fetch(
-    //   `http://localhost:8000/department_teams/${selectedDepartment}`
-    // );
-    // const tableUpdated = await response.json();
-    // setDataToShowOnTable(tableUpdated.data);
+    const response = await fetch(
+      `http://localhost:8000/department_teams/${payload.departmentID}`
+    );
+    const tableUpdated = await response.json();
+    setDataToShowOnTable(tableUpdated.data);
   }
 
   return (
@@ -116,6 +133,12 @@ export default function Departments() {
                 label: item._name,
                 value: item._id,
               })),
+            },
+            {
+              tipo: "select",
+              nome: "managerID",
+              label: "Gerente responsável",
+              options: managerOptions,
             },
           ]}
         />
