@@ -87,9 +87,14 @@ async def create_user(user: UserCreate):
         raise HTTPException(status_code=400, detail="Campos obrigatórios ausentes")
 
     new_user = Person(
-        user.name, user.cpf, user.companyID,
-        user.departmentID, user.teamID, user.email, user.password
-    )
+    name=user.name,
+    cpf=user.cpf,
+    companyID=user.companyID,
+    departmentID=user.departmentID,
+    teamID=user.teamID,
+    email=user.email,
+    password=user.password)
+
     DB.addItem(new_user)
     return {"message": "Usuário criado com sucesso!"}
 

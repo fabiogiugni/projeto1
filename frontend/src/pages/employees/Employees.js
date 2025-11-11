@@ -11,7 +11,7 @@ export default function Employees() {
 
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [teamOptions, setTeamOptions] = useState([]);
-  const [selectedDepartment, setSelectedDepartment] = useState(null); // 👈 novo
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -35,21 +35,50 @@ export default function Employees() {
     fetchData();
   }, []);
 
+  const filteredEmployees =
+    dataToShowOnTable && searchedEmployee
+      ? dataToShowOnTable.filter((emp) =>
+          emp._name
+            ?.toLowerCase()
+            .includes(searchedEmployee.trim().toLowerCase())
+        )
+      : dataToShowOnTable;
+
   // ===============================
   // Criação de funcionário
   // ===============================
   async function handleCreate(newEmployee) {
-    const response = await fetch("http://localhost:8000/employee", {
+    // ajusta chaves pro backend entender
+    const payload = {
+      name: newEmployee.employeeName,
+      cpf: newEmployee.cpf,
+      email: newEmployee.email,
+      password: newEmployee.password,
+      departmentID: newEmployee.departmentID,
+      teamID: newEmployee.teamID,
+      companyID: "c972a771-0718-4c75-bddf-dfa605b7b93d", // empresa fixa
+    };
+
+    const response = await fetch("http://localhost:8000/user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newEmployee),
+      body: JSON.stringify(payload),
     });
 
     if (response.ok) {
       const updated = await fetch("http://localhost:8000/getAllEmployees");
       const updatedData = await updated.json();
       setDataToShowOnTable(updatedData.data);
+    } else {
+      console.error("Falha ao criar funcionário:", await response.text());
     }
+  }
+
+  async function handleDeleteEmployee(id) {
+    await fetch(`http://localhost:8000/user/${id}`, { method: "DELETE" });
+    const updated = await fetch("http://localhost:8000/getAllEmployees");
+    const updatedData = await updated.json();
+    setDataToShowOnTable(updatedData.data);
   }
 
   // ===============================
@@ -105,14 +134,15 @@ export default function Employees() {
         </button>
       </div>
 
-      {dataToShowOnTable && (
+      {filteredEmployees && (
         <CommonPageTable
-          data={dataToShowOnTable}
+          data={filteredEmployees}
           type="employees"
           hasEditFunction={true}
           hasDeleteFunction={true}
           deleteText="Tem certeza que deseja deletar o funcionário?"
           showDepartment={true}
+          setOnDelete={handleDeleteEmployee}
         />
       )}
 
