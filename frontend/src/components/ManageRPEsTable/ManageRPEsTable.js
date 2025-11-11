@@ -7,7 +7,11 @@ export default function HomeTable({
   group,
   groupType,
   deleteText = "Tem certeza que deseja deletar? Os dados não poderão ser recuperados.",
+  setOnDelete,
 }) {
+
+
+
   return (
     <table className={styles.tableBackground}>
       <tbody>
@@ -38,6 +42,7 @@ export default function HomeTable({
               type={type}
               key={lineData.id}
               deleteText={deleteText}
+              setOnDelete={setOnDelete}
             />
           ))}
         </>

@@ -1,0 +1,128 @@
+/* === Overlay === */
+.overlay {
+  background-color: rgba(0, 0, 0, 0.6);
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.2s ease;
+  z-index: 20;
+}
+
+/* === Modal === */
+.modal {
+  background-color: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 0.4rem;
+  width: 450px;
+  padding: 1.5rem;
+  color: #e3e3e3;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  animation: scaleIn 0.2s ease;
+  z-index: 30;
+}
+
+/* === Form === */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 500;
+  color: #e3e3e3;
+  font-size: 0.95rem;
+}
+
+/* === Inputs === */
+textarea,
+select,
+input {
+  background-color: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 0.3rem;
+  color: #e3e3e3;
+  padding: 0.6rem;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+textarea {
+  resize: none;
+  height: 80px;
+}
+
+textarea:focus,
+select:focus,
+input:focus {
+  border-color: #888;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+/* === Actions === */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* === Buttons === */
+.cancelBtn {
+  background-color: #444;
+  color: #e3e3e3;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.cancelBtn:hover {
+  background-color: #555;
+  transform: scale(1.03);
+}
+
+.confirmBtn {
+  background-color: #4caf50;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.confirmBtn:hover {
+  background-color: #3da743;
+  transform: scale(1.03);
+}
+
+/* === Animations === */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

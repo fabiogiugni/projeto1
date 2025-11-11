@@ -1,26 +1,17 @@
-import { useState } from "react";
-import { ManageRPEsTable, Select } from "../../components";
+import { useEffect, useState } from "react";
+import { ManageRPEsTable, Select, CreateDataModal, } from "../../components";
 import styles from "./RPE.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
 
-import {
-  companies,
-  departments,
-  teams,
-  rpes,
-  objectives,
-  krs,
-  kpis,
-} from "../../assets/testValues";
-
 export default function RPE() {
-  // Para o funcionamento da página, temos 2 inputs
-  // Um é o input de grupo que filtra por rpes, objetivo, etc. e o outro é o de dado, que filtra por empresa, departamento, etc
-  // Enquanto algum dos filtros estiver vazio, o backend não é chamado para puxar os dados
-
+  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [selectedGroupType, setSelectedGroupType] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedDataType, setSelectedDataType] = useState("");
+
+  const [groupOptions, setGroupOptions] = useState([]);
+  const [dataToShowOnTable, setDataToShowOnTable] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const groupTypeOptions = [
     { label: "Empresa", value: "company" },
@@ -35,26 +26,89 @@ export default function RPE() {
     { label: "KPI", value: "kpi" },
   ];
 
-  let groupOptions = [];
-  if (selectedGroupType === "company")
-    groupOptions = companies.map((company) => ({
-      label: company.name,
-      value: company.id,
-    }));
-  if (selectedGroupType === "department")
-    groupOptions = departments.map((department) => ({
-      label: department.name,
-      value: department.id,
-    }));
-  if (selectedGroupType === "team")
-    groupOptions = teams.map((team) => ({ label: team.name, value: team.id }));
 
-  /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = [];
-  if (selectedDataType === "RPE") dataToShowOnTable = rpes;
-  else if (selectedDataType === "objective") dataToShowOnTable = objectives;
-  else if (selectedDataType === "kr") dataToShowOnTable = krs;
-  else dataToShowOnTable = kpis;
+
+  // 1️⃣ Buscar opções do grupo (empresas, departamentos, equipes)
+  useEffect(() => {
+    async function fetchGroups() {
+      if (!selectedGroupType) return;
+
+      let endpoint = "";
+      if (selectedGroupType === "company") endpoint = "getAllCompanies";
+      else if (selectedGroupType === "department") endpoint = "getAllDepartments";
+      else if (selectedGroupType === "team") endpoint = "getAllTeams";
+
+      try {
+        const res = await fetch(`http://localhost:8000/${endpoint}`);
+        const data = await res.json();
+        const formatted = data.data.map((item) => ({
+          label: item._name || item.name,
+          value: item._id || item.id,
+        }));
+        setGroupOptions(formatted);
+      } catch (err) {
+        console.error("Erro ao buscar grupos:", err);
+      }
+    }
+
+    fetchGroups();
+  }, [selectedGroupType]);
+
+  // 2️⃣ Buscar RPEs, Objectives, KRs ou KPIs de acordo com o grupo selecionado
+  useEffect(() => {
+    async function fetchData() {
+      if (!selectedDataType || !selectedGroupType || !selectedGroup) return;
+
+      setIsLoading(true);
+      try {
+        // Determina o endpoint base do grupo
+        const groupEndpoints = {
+          company: "company",
+          department: "department",
+          team: "team",
+        };
+
+        const groupUrl = `http://localhost:8000/${groupEndpoints[selectedGroupType]}/${selectedGroup}`;
+        const groupResponse = await fetch(groupUrl);
+        const groupData = await groupResponse.json();
+
+        // Extrai o array de IDs conforme o tipo selecionado
+        const groupInfo = groupData.data;
+        let ids = [];
+
+        if (selectedDataType === "rpe") ids = groupInfo.rpeIds || [];
+        else if (selectedDataType === "objective") ids = groupInfo.objectiveIds || [];
+        else if (selectedDataType === "kr") ids = groupInfo.krIds || [];
+        else if (selectedDataType === "kpi") ids = groupInfo.kpiIds || [];
+
+        if (!ids.length) {
+          setDataToShowOnTable([]);
+          setIsLoading(false);
+          return;
+        }
+
+        // Busca todos os objetos correspondentes
+        const fetchPromises = ids.map(async (id) => {
+          const res = await fetch(`http://localhost:8000/${selectedDataType}/${id}`);
+          const itemData = await res.json();
+          return itemData.data;
+        });
+
+        const results = await Promise.all(fetchPromises);
+        setDataToShowOnTable(results);
+      } catch (err) {
+        console.error("Erro ao buscar dados:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [selectedDataType, selectedGroup, selectedGroupType]);
+
+  const reloadData = () => {
+    setSelectedDataType((prev) => prev); // força re-render da useEffect
+  };
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -77,11 +131,24 @@ export default function RPE() {
           onChange={setSelectedDataType}
         />
 
-        <button className={styles.iconButton}>
+        <button className={styles.iconButton} onClick={() => setCreateModalOpen(true)}>
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
-      {selectedDataType && selectedGroupType && selectedGroup ? (
+
+      
+      <CreateDataModal
+        open={isCreateModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        selectedGroupType={selectedGroupType}
+        selectedGroup={selectedGroup}
+        selectedDataType={selectedDataType}
+        onCreated={reloadData}
+      />
+
+      {isLoading ? (
+        <div>Carregando dados...</div>
+      ) : selectedDataType && selectedGroupType && selectedGroup ? (
         <ManageRPEsTable
           data={dataToShowOnTable}
           type={selectedDataType}
@@ -89,7 +156,7 @@ export default function RPE() {
           groupType={selectedGroupType}
         />
       ) : (
-        <div>Preencha todos os dados visualizar a tabela</div>
+        <div>Preencha todos os campos para visualizar a tabela</div>
       )}
     </div>
   );

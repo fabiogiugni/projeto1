@@ -6,11 +6,34 @@ import DeleteButton from "../../assets/Delete.svg";
 import UploadButton from "../../assets/Folder.svg";
 import { DeleteModal } from "../";
 
-export default function TableRow({ data, group, type, deleteText }) {
+export default function TableRow({ data, group, type, deleteText, setOnDelete }) {
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+  
 
-  function handleDelete() {
-    console.log("Item deleted!");
+  async function handleDelete() {
+    console.log(data)
+    if (!data.id) return;
+
+    const endpoints = {
+      rpe: `http://localhost:8000/rpe/${data.id}`,
+      kr: `http://localhost:8000/kr/${data.id}`,
+      kpi: `http://localhost:8000/kpi/${data.id}`,
+      objective: `http://localhost:8000/objective/${data.id}`,
+    };
+
+    const url = endpoints[type];
+    console.log(data)
+
+    if (!url) {
+      console.error("DELETE endpoint not implemented for type:", type);
+      return;
+    }
+
+    await fetch(url, { method: "DELETE" });
+
+    
+
+    setDeleteModalOpen(false);
   }
 
   return (
