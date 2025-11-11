@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ManageRPEsTable, Select, CreateDataModal, } from "../../components";
+import { ManageRPEsTable, Select, CreateDataModal } from "../../components";
 import styles from "./RPE.module.css";
 import plusCircle from "../../assets/Plus-circle.svg";
 
@@ -9,10 +9,11 @@ export default function RPE() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedDataType, setSelectedDataType] = useState("");
 
-  const [groupOptions, setGroupOptions] = useState([]);
-  const [dataToShowOnTable, setDataToShowOnTable] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [tableData, setTableData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // opções
   const groupTypeOptions = [
     { label: "Empresa", value: "company" },
     { label: "Departamento", value: "department" },
@@ -26,26 +27,29 @@ export default function RPE() {
     { label: "KPI", value: "kpi" },
   ];
 
+  // resetar selects ao mudar tipo de grupo
+  useEffect(() => {
+    setSelectedGroup("");
+    setSelectedDataType("");
+    setTableData([]);
+  }, [selectedGroupType]);
 
-
-  // 1️⃣ Buscar opções do grupo (empresas, departamentos, equipes)
+  // buscar grupos
   useEffect(() => {
     async function fetchGroups() {
       if (!selectedGroupType) return;
 
-      let endpoint = "";
-      if (selectedGroupType === "company") endpoint = "getAllCompanies";
-      else if (selectedGroupType === "department") endpoint = "getAllDepartments";
-      else if (selectedGroupType === "team") endpoint = "getAllTeams";
+      const endpoints = {
+        company: "/getAllCompanies",
+        department: "/getAllDepartments",
+        team: "/getAllTeams",
+      };
 
       try {
-        const res = await fetch(`http://localhost:8000/${endpoint}`);
-        const data = await res.json();
-        const formatted = data.data.map((item) => ({
-          label: item._name || item.name,
-          value: item._id || item.id,
-        }));
-        setGroupOptions(formatted);
+        const res = await fetch(`http://localhost:8000${endpoints[selectedGroupType]}`);
+        const json = await res.json();
+        const normalized = Array.isArray(json.data) ? json.data : [json.data];
+        setGroups(normalized);
       } catch (err) {
         console.error("Erro ao buscar grupos:", err);
       }
@@ -54,60 +58,51 @@ export default function RPE() {
     fetchGroups();
   }, [selectedGroupType]);
 
-  // 2️⃣ Buscar RPEs, Objectives, KRs ou KPIs de acordo com o grupo selecionado
-  useEffect(() => {
-    async function fetchData() {
-      if (!selectedDataType || !selectedGroupType || !selectedGroup) return;
-
-      setIsLoading(true);
-      try {
-        // Determina o endpoint base do grupo
-        const groupEndpoints = {
-          company: "company",
-          department: "department",
-          team: "team",
-        };
-
-        const groupUrl = `http://localhost:8000/${groupEndpoints[selectedGroupType]}/${selectedGroup}`;
-        const groupResponse = await fetch(groupUrl);
-        const groupData = await groupResponse.json();
-
-        // Extrai o array de IDs conforme o tipo selecionado
-        const groupInfo = groupData.data;
-        let ids = [];
-
-        if (selectedDataType === "rpe") ids = groupInfo.rpeIds || [];
-        else if (selectedDataType === "objective") ids = groupInfo.objectiveIds || [];
-        else if (selectedDataType === "kr") ids = groupInfo.krIds || [];
-        else if (selectedDataType === "kpi") ids = groupInfo.kpiIds || [];
-
-        if (!ids.length) {
-          setDataToShowOnTable([]);
-          setIsLoading(false);
-          return;
-        }
-
-        // Busca todos os objetos correspondentes
-        const fetchPromises = ids.map(async (id) => {
-          const res = await fetch(`http://localhost:8000/${selectedDataType}/${id}`);
-          const itemData = await res.json();
-          return itemData.data;
-        });
-
-        const results = await Promise.all(fetchPromises);
-        setDataToShowOnTable(results);
-      } catch (err) {
-        console.error("Erro ao buscar dados:", err);
-      } finally {
-        setIsLoading(false);
-      }
+  // 👉 função reutilizável para buscar dados da tabela
+  async function fetchTable() {
+    if (!selectedGroupType || !selectedGroup || !selectedDataType) {
+      setTableData([]);
+      return;
     }
 
-    fetchData();
-  }, [selectedDataType, selectedGroup, selectedGroupType]);
+    setIsLoading(true);
+    try {
+      const url = `http://localhost:8000/data/${selectedGroupType}/${selectedGroup}/${selectedDataType}`;
+      const response = await fetch(url);
+      const json = await response.json();
 
+      const normalized = Array.isArray(json.data) ? json.data : [json.data];
+      const dataWithIds = normalized.map((item) => ({
+        ...item,
+        id: item._id || item.id || "",
+      }));
+
+      setTableData(dataWithIds);
+    } catch (err) {
+      console.error("Erro ao carregar dados da tabela:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // atualizar dados quando selects mudam
+  useEffect(() => {
+    fetchTable();
+  }, [selectedGroupType, selectedGroup, selectedDataType]);
+
+  // recarregar manualmente após criar algo
   const reloadData = () => {
-    setSelectedDataType((prev) => prev); // força re-render da useEffect
+    fetchTable();
+  };
+
+  const groupOptions = groups.map((item) => ({
+    label: item._name || item.name,
+    value: item._id || item.id,
+  }));
+
+  const getLabelByValue = (value, options) => {
+    const found = options.find((opt) => opt.value === value);
+    return found ? found.label : "";
   };
 
   return (
@@ -120,23 +115,26 @@ export default function RPE() {
           options={groupTypeOptions}
           onChange={setSelectedGroupType}
         />
+
         <Select
           title="Grupo"
           options={groupOptions}
           onChange={setSelectedGroup}
+          disabled={!selectedGroupType}
         />
+
         <Select
           title="Dado"
           options={dataTypeOptions}
           onChange={setSelectedDataType}
+          disabled={!selectedGroup}
         />
 
-        <button className={styles.iconButton} onClick={() => setCreateModalOpen(true)}>
+        <button className={styles.iconButton} onClick={() => {setCreateModalOpen(true); fetchTable();}}>
           <img src={plusCircle} alt="Plus Circle" />
         </button>
       </div>
 
-      
       <CreateDataModal
         open={isCreateModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -148,12 +146,13 @@ export default function RPE() {
 
       {isLoading ? (
         <div>Carregando dados...</div>
-      ) : selectedDataType && selectedGroupType && selectedGroup ? (
+      ) : selectedGroupType && selectedGroup && selectedDataType ? (
         <ManageRPEsTable
-          data={dataToShowOnTable}
+          data={tableData}
           type={selectedDataType}
-          group={selectedGroup}
-          groupType={selectedGroupType}
+          group={getLabelByValue(selectedGroup, groupOptions)}
+          groupType={getLabelByValue(selectedGroupType, groupTypeOptions)}
+          setOnDelete={fetchTable}
         />
       ) : (
         <div>Preencha todos os campos para visualizar a tabela</div>

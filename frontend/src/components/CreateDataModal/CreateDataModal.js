@@ -20,7 +20,7 @@ export default function CreateDataModal({
       if (!selectedGroupType || !selectedGroup) return;
 
       let endpoint = "";
-      if (selectedGroupType === "company") endpoint = `getAllEmployees`;
+      if (selectedGroupType === "company") endpoint = `getAllEmployees/${selectedGroup}`;
       else if (selectedGroupType === "department")
         endpoint = `department_users/${selectedGroup}`;
       else if (selectedGroupType === "team")
