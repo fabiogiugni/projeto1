@@ -375,6 +375,43 @@ class Database:
     
     # --- MÉTODOS DE RELAÇÃO MUITOS-PARA-MUITOS (Junction Tables) ---
 
+    def getCompanies(self) -> list["Company"]:
+        """
+        Retorna todas as empresas como instâncias da classe Company,
+        carregando também os RPEs associados (via tabela company_rpes).
+        """
+        try:
+            from ..entities.company import Company  # import local para evitar dependências cíclicas
+            cursor = self.__db.cursor()
+
+            # Busca todas as empresas
+            cursor.execute("SELECT id, name, cnpj FROM company")
+            rows = cursor.fetchall()
+            companies = []
+
+            for row in rows:
+                company = Company(id=row["id"], name=row["name"], cnpj=row["cnpj"])
+
+                # Busca os RPEs associados a essa empresa
+                cursor.execute("SELECT rpeID FROM company_rpes WHERE companyID = ?", (row["id"],))
+                rpe_rows = cursor.fetchall()
+
+                for rpe_row in rpe_rows:
+                    rpe_id = rpe_row["rpeID"]
+                    company.addRPE(rpe_id, self)  # adiciona o RPE à empresa
+
+                companies.append(company)
+
+            print(f"LOG: {len(companies)} empresas carregadas com sucesso (com RPEs associados).")
+            return companies
+
+        except sqlite3.Error as e:
+            print(f"[ERRO] Falha ao buscar empresas e RPEs: {e}")
+            return []
+
+
+
+
     def _add_junction(self, table: str, col1_name: str, col1_id: str, col2_name: str, col2_id: str) -> bool:
         """Função auxiliar genérica para inserir em tabela de junção (N-N)."""
         try:
@@ -993,20 +1030,24 @@ class Database:
         
         return teams
 
-    def getDepartmentsByCompanyID(self, companyID: str ) -> list[Department]:
+    def getDepartmentsByCompanyID(self, companyID: str) -> list["Department"]:
         """
-        Retorna todos os departamentos pertencentes a uma empresa.
+        Retorna todos os departamentos pertencentes a uma empresa,
+        incluindo os RPEs associados via tabela department_rpes.
         """
-
         print(companyID)
         try:
+            from ..entities.department import Department  # evita dependências cíclicas
             cursor = self.__db.cursor()
+
+            # Busca os departamentos da empresa
             cursor.execute("SELECT * FROM department WHERE companyID = ?", (companyID,))
             rows = cursor.fetchall()
             print(rows)
+
             departments = []
             for row in rows:
-                # Convert Row → dict caso necessário
+                # Cria a instância Department
                 if not isinstance(row, sqlite3.Row):
                     columns = [desc[0] for desc in cursor.description]
                     row = {columns[i]: row[i] for i in range(len(columns))}
@@ -1014,14 +1055,22 @@ class Database:
                 else:
                     dept = Department(**row)
 
-                # Hidratar relações (teamIds, rpeIds)
+                # --- NOVO: Carregar RPEs do departamento ---
+                cursor.execute("SELECT rpeID FROM department_rpes WHERE departmentID = ?", (dept.id,))
+                rpe_rows = cursor.fetchall()
+                for rpe_row in rpe_rows:
+                    dept.addRPE(rpe_row["rpeID"], self)
+
+                # Hidratar demais relações (como teams, etc.)
                 departments.append(self._hydrateDepartment(dept))
-            
+
+            print(f"LOG: {len(departments)} departamentos carregados com sucesso (com RPEs associados).")
             return departments
 
         except sqlite3.Error as e:
             print(f"[ERRO] Falha ao buscar departamentos da empresa {companyID}: {e}")
             return []
+
 
     def getTeamsByDepartmentID(self, departmentID: str) -> list[Team]:
         """

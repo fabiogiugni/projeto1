@@ -100,7 +100,7 @@ async def create_user(user: UserCreate):
 
 @app.get("/getAllCompanies")
 async def getAllCompanies():
-    companies = DB.getCompanyByID("c972a771-0718-4c75-bddf-dfa605b7b93d")
+    companies = DB.getCompanies()
     return {"data": companies}
 
 
@@ -151,6 +151,33 @@ async def get_RPE(id: str):
         raise HTTPException(status_code=404, detail="RPE não encontrado")
     return {"data": rpe}
 
+@app.get("/KR/{id}")
+async def get_kr(id: str):
+    if not id:
+        raise HTTPException(status_code=400, detail="ID é obrigatório")
+    kr = DB.getKRByID(id)
+    if kr is None:
+        raise HTTPException(status_code=404, detail="KR não encontrado")
+    return {"data": kr}
+
+@app.get("/KPI/{id}")
+async def get_kpi(id: str):
+    if not id:
+        raise HTTPException(status_code=400, detail="ID é obrigatório")
+    kpi = DB.getKPIByID(id)
+    if kpi is None:
+        raise HTTPException(status_code=404, detail="kpi não encontrado")
+    return {"data": kpi}
+
+@app.get("/objective/{id}")
+async def get_objective(id: str):
+    if not id:
+        raise HTTPException(status_code=400, detail="ID é obrigatório")
+    objective = DB.getObjectiveByID(id)
+    if objective is None:
+        raise HTTPException(status_code=404, detail="objective não encontrado")
+    return {"data": objective}
+
 
 @app.put("/kr_goal/{id}")
 async def change_kr_goal(id: str, kr_data: KRUpdate):
@@ -164,6 +191,7 @@ async def change_kr_goal(id: str, kr_data: KRUpdate):
     kr.goal = kr_data.goal
     DB.updateItem(kr)
     return {"message": "KR atualizado com sucesso"}
+
 
 
 @app.put("/kr_data/{id}")
@@ -240,6 +268,42 @@ async def get_company_departments(id : str):
 
     return {"data" : departments}
 
+@app.put("/addCompanyRPE/{id}/{rpe_id}")
+async def add_company_rpe(id : str, rpe_id:str):
+    company = DB.getCompanyByID(id)
+    if company == None:
+        raise HTTPException(status_code=404, detail="Empresa não encontrado")
+
+    company.addRPE(rpe_id, DB)
+
+    DB.updateItem(company)
+
+    return {"data" : company}
+
+@app.put("/addDepartmentRPE/{id}/{rpe_id}")
+async def add_department_rpe(id : str, rpe_id:str):
+    department = DB.getDepartmentByID(id)
+    if department == None:
+        raise HTTPException(status_code=404, detail="departamento não encontrado")
+
+    department.addRPE(rpe_id, DB)
+
+    DB.updateItem(department)
+
+    return {"data" : department}
+
+@app.put("/addTeamRPE/{id}/{rpe_id}")
+async def add_team_rpe(id : str, rpe_id:str):
+    team = DB.getTeamByID(id)
+    if team == None:
+        raise HTTPException(status_code=404, detail="equipe não encontrado")
+
+    team.addRPE(rpe_id, DB)
+
+    DB.updateItem(team)
+
+    return {"data" : team}
+
 # =====================
 #      DEPARTMENT
 # =====================
@@ -284,15 +348,15 @@ async def get_department_users(id : str):
 
     return {"data" : users}
 
-@app.get("/getAllDepartments") 
-async def getDepartmentsByCompanyID():
-    departaments = DB.getDepartmentsByCompanyID("c972a771-0718-4c75-bddf-dfa605b7b93d")
+@app.get("/getAllDepartments/{id}") 
+async def getDepartmentsByCompanyID(id :str):
+    departaments = DB.getDepartmentsByCompanyID(id)
     
     return {"data": departaments}
 
-@app.get("/getAllEmployees") 
-async def getPersonsByCompanyID():
-    users = DB.getPersonsByCompanyID("c972a771-0718-4c75-bddf-dfa605b7b93d")
+@app.get("/getAllEmployees/{id}") 
+async def getPersonsByCompanyID(id:str):
+    users = DB.getPersonsByCompanyID(id)
     
     return {"data": users}
     
