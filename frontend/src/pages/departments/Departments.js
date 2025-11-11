@@ -21,6 +21,8 @@ export default function Departments() {
     fetchDepartaments();
   }, []);
 
+  console.log(departamentOptions);
+
   useEffect(() => {
     async function fetchTeams() {
       if (selectedDepartment) {
@@ -38,21 +40,23 @@ export default function Departments() {
   async function handleCreate(data) {
     const payload = {
       name: data.teamName,
-      departmentID: selectedDepartment,
+      departmentID: data.department,
     };
 
-    await fetch("http://localhost:8000/team", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    console.log(payload);
 
-    // refresh table
-    const response = await fetch(
-      `http://localhost:8000/department_teams/${selectedDepartment}`
-    );
-    const tableUpdated = await response.json();
-    setDataToShowOnTable(tableUpdated.data);
+    // await fetch("http://localhost:8000/team", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify(payload),
+    // });
+
+    // // refresh table
+    // const response = await fetch(
+    //   `http://localhost:8000/department_teams/${selectedDepartment}`
+    // );
+    // const tableUpdated = await response.json();
+    // setDataToShowOnTable(tableUpdated.data);
   }
 
   return (
@@ -96,16 +100,26 @@ export default function Departments() {
         />
       )}
 
-      <CreateModal
-        open={openCreateModal}
-        onOpenChange={setOpenCreateModal}
-        title="Criar equipe"
-        onCreate={handleCreate}
-        fields={[
-          { tipo: "text", nome: "teamName", label: "Nome da equipe" },
-          { tipo: "text", nome: "teamName", label: "Nome da equipe" },
-        ]}
-      />
+      {departamentOptions && (
+        <CreateModal
+          open={openCreateModal}
+          onOpenChange={setOpenCreateModal}
+          title="Criar equipe"
+          onCreate={handleCreate}
+          fields={[
+            { tipo: "text", nome: "teamName", label: "Nome da equipe" },
+            {
+              tipo: "select",
+              nome: "department",
+              label: "Departamento",
+              options: departamentOptions.map((item) => ({
+                label: item._name,
+                value: item._id,
+              })),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 }

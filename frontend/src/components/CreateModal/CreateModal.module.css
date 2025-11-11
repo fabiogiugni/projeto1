@@ -65,15 +65,6 @@
   margin-top: 1rem;
 }
 
-.createButton {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.createButton:hover {
-  background-color: #2563eb;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -92,4 +83,10 @@
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
   }
+}
+
+.errorMessage {
+  color: #ff8688;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
 }

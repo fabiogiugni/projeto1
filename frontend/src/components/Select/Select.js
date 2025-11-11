@@ -1,8 +1,16 @@
 import styles from "./Select.module.css";
 
-export default function Select({ title, options = [], onChange, width }) {
+export default function Select({
+  title,
+  options = [],
+  onChange,
+  width,
+  modal,
+}) {
   const selectClassName = width
     ? `${styles.select} ${styles.increasedWidth}`
+    : modal
+    ? `${styles.select} ${styles.modal}`
     : styles.select;
 
   return (

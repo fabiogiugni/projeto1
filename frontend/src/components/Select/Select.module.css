@@ -1,6 +1,7 @@
 .selectWrapper {
   display: inline-block;
   position: relative;
+  width: 100%;
 }
 
 .select {
@@ -42,4 +43,8 @@
 
 .increasedWidth {
   width: 15rem;
+}
+
+.modal {
+  width: 100% !important;
 }
