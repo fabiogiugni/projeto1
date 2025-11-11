@@ -421,3 +421,30 @@ async def delete_kr(id: str):
     return {"message": "KR deletado com sucesso"}
 
 
+
+@app.get("/data/{group_type}/{group_id}/{data_type}")
+async def get_data_by_entity(group_type: str, group_id: str, data_type: str):
+    """
+    Retorna RPE / Objective / KPI / KR filtrado por Company, Department ou Team.
+    group_type: "company" | "department" | "team"
+    data_type: "rpe" | "objective" | "kpi" | "kr"
+    """
+
+    if not (group_type and group_id and data_type):
+        raise HTTPException(status_code=400, detail="Parâmetros obrigatórios ausentes")
+
+    group_type_normalized = group_type.capitalize()
+
+    data_type_normalized = data_type.upper()
+
+    try:
+        result = DB.getDataByEntity(
+            group_type_normalized,
+            group_id,
+            data_type_normalized
+        )
+        return {"data": result}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

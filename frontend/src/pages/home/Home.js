@@ -4,47 +4,66 @@ import styles from "./Home.module.css";
 
 export default function Home() {
   const [selectedGroupType, setSelectedGroupType] = useState("");
-  const [groups, setGroups] = useState([]); // <- aqui guarda os grupos vindos do backend
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedDataType, setSelectedDataType] = useState("");
 
-  // ================================
-  // CHAMAR BACKEND AO MUDAR O TIPO
-  // ================================
+  const [groups, setGroups] = useState([]);
+  const [tableData, setTableData] = useState([]);
+
+  useEffect(() => {
+    setSelectedGroup("");
+    setSelectedDataType("");
+    setTableData([]);
+  }, [selectedGroupType]);
+
   useEffect(() => {
     async function fetchGroups() {
-      if (!selectedGroupType) {
-        setGroups([]);
-        return;
-      }
+      if (!selectedGroupType) return;
+
+      const endpoints = {
+        company: "/getAllCompanies",
+        department: "/getAllDepartments",
+        team: "/getAllTeams",
+      };
 
       try {
-        let url = "";
+        const res = await fetch(
+          `http://localhost:8000${endpoints[selectedGroupType]}`
+        );
+        const json = await res.json();
 
-        if (selectedGroupType === "company") {
-          // você *não tem* este endpoint ainda
-          // então vou deixar como exemplo
-          url = "http://localhost:8000/getAllCompanies";
-        }
+        const normalized = Array.isArray(json.data) ? json.data : [json.data];
 
-        if (selectedGroupType === "department") {
-          url = "http://localhost:8000/getAllDepartments";
-        }
-
-        if (selectedGroupType === "team") {
-          url = "http://localhost:8000/getAllTeams";
-        }
-
-        const response = await fetch(url);
-        const data = await response.json();
-        setGroups(data.data);
+        setGroups(normalized);
       } catch (err) {
-        console.error("Erro ao buscar grupos", err);
+        console.error("Erro ao buscar grupos:", err);
       }
     }
 
     fetchGroups();
   }, [selectedGroupType]);
+
+  useEffect(() => {
+    async function fetchTable() {
+      if (!selectedGroupType || !selectedGroup || !selectedDataType) {
+        setTableData([]);
+        return;
+      }
+
+      try {
+        const url = `http://localhost:8000/data/${selectedGroupType}/${selectedGroup}/${selectedDataType}`;
+        const response = await fetch(url);
+        const json = await response.json();
+        const normalized = Array.isArray(json.data) ? json.data : [json.data];
+        console.log(normalized);
+        //setTableData(normalized);
+      } catch (err) {
+        console.error("Erro ao carregar dados da tabela:", err);
+      }
+    }
+
+    fetchTable();
+  }, [selectedGroupType, selectedGroup, selectedDataType]);
 
   const groupTypeOptions = [
     { label: "Empresa", value: "company" },
@@ -60,8 +79,8 @@ export default function Home() {
   ];
 
   const groupOptions = groups.map((item) => ({
-    label: item.name,
-    value: item.id,
+    label: item._name,
+    value: item._id,
   }));
 
   return (
@@ -79,24 +98,27 @@ export default function Home() {
           title="Grupo"
           options={groupOptions}
           onChange={setSelectedGroup}
+          width={true}
+          disabled={!selectedGroupType}
         />
 
         <Select
           title="Dado"
           options={dataTypeOptions}
           onChange={setSelectedDataType}
+          disabled={!selectedGroup}
         />
       </div>
 
-      {selectedDataType && selectedGroupType && selectedGroup ? (
+      {selectedGroupType && selectedGroup && selectedDataType ? (
         <HomeTable
-          data={[]}
+          data={tableData}
           type={selectedDataType}
           group={selectedGroup}
           groupType={selectedGroupType}
         />
       ) : (
-        <div>Preencha todos os dados visualizar a tabela</div>
+        <div>Preencha todos os dados para visualizar a tabela</div>
       )}
     </div>
   );

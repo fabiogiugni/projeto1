@@ -15,7 +15,6 @@ export default function TableRow({
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
   const [department, setDepartment] = useState("");
 
-  console.log(department);
   useEffect(() => {
     if (showDepartment) {
       async function fetchdepartment() {
