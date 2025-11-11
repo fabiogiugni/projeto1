@@ -242,8 +242,8 @@ async def get_company_departments(id : str):
 async def create_department(department: DepartmentCreate):
     if not department.name or not department.companyID:
         raise HTTPException(status_code=400, detail="Nome e companyID são obrigatórios")
-
-    new_department = Department(department.name, department.companyID)
+    print(department.companyID)
+    new_department = Department(department.name, department.directorID, department.companyID)
     DB.addItem(new_department)
     return {"message": "Departamento criado com sucesso!"}
 

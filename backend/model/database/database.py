@@ -272,26 +272,27 @@ class Database:
                 # --- Bloco Department ---
                 elif isinstance(item, Department):
                     query = """INSERT INTO department (
-                               id, name, companyID, directorID
-                               ) VALUES (?, ?, ?, ?)"""
+                            id, name, companyID, directorID
+                            ) VALUES (?, ?, ?, ?)"""
                     params = (item.id, item.name, item.companyID, item.directorID)
-                    # EXECUTA A QUERY PRINCIPAL AQUI
-                    self.__db.execute(query, params)
-                    
-                    # LÓGICA DE RELACIONAMENTO BASE PARA DEPARTMENT
-                    # 1. Adiciona o departamento à lista de departamentos da empresa
-                    self.assignDepartmentToCompany(item.id, item.companyID)
+                    print(f"[DEBUG] Tentando inserir Department: {params}")
+                    try:
+                        self.__db.execute(query, params)
+                        print(f"[DEBUG] Inserção executada. Total changes: {self.__db.total_changes}")
+                        self.__db.commit()
+                        print(f"[DEBUG] Commit feito. Total changes agora: {self.__db.total_changes}")
+                    except Exception as e:
+                        print(f"[ERRO] Falha ao inserir Department: {e}")
+
 
                 # --- Bloco Team ---
                 elif isinstance(item, Team):
-                    print("asdl")
                     query = """INSERT INTO team (
                                id, name, departmentID, managerID
                                ) VALUES (?, ?, ?, ?)"""
                     params = (item.id, item.name, item.departmentID, item.managerID)
                     # EXECUTA A QUERY PRINCIPAL AQUI
                     self.__db.execute(query, params)
-                    print("asdl")
 
                     # LÓGICA DE RELACIONAMENTO BASE PARA TEAM
                     # 1. Adiciona o time à lista de times do departamento
