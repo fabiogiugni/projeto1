@@ -93,6 +93,11 @@ async def create_user(user: UserCreate):
     DB.addItem(new_user)
     return {"message": "Usuário criado com sucesso!"}
 
+@app.get("/getAllCompanies")
+async def getAllCompanies():
+    companies = DB.getCompanyByID("c972a771-0718-4c75-bddf-dfa605b7b93d")
+    return {"data": companies}
+
 
 @app.put("/user_role/{id}/{role}")
 async def change_role(id: str, role: str):
@@ -112,6 +117,11 @@ async def change_role(id: str, role: str):
         user.role = role
         DB.updateItem(user)
         return {"message": "Cargo mudado com sucesso"}
+
+
+@app.put("/user_department/{id}/{idDepartment}")
+async def change_user_department(id: str, idDepartment: str):
+    DB.assignPersonToDepartment(id, idDepartment)
 
 # =====================
 #         RPE
@@ -232,8 +242,8 @@ async def get_company_departments(id : str):
 async def create_department(department: DepartmentCreate):
     if not department.name or not department.companyID:
         raise HTTPException(status_code=400, detail="Nome e companyID são obrigatórios")
-
-    new_department = Department(department.name, department.companyID)
+    print(department.companyID)
+    new_department = Department(department.name, department.directorID, department.companyID)
     DB.addItem(new_department)
     return {"message": "Departamento criado com sucesso!"}
 
@@ -271,13 +281,13 @@ async def get_department_users(id : str):
 
 @app.get("/getAllDepartments") 
 async def getDepartmentsByCompanyID():
-    departaments = DB.getDepartmentsByCompanyID("1e9a26c8-fc43-4a17-b6fc-cb5129aed669")
+    departaments = DB.getDepartmentsByCompanyID("c972a771-0718-4c75-bddf-dfa605b7b93d")
     
     return {"data": departaments}
 
 @app.get("/getAllEmployees") 
 async def getPersonsByCompanyID():
-    users = DB.getPersonsByCompanyID("1e9a26c8-fc43-4a17-b6fc-cb5129aed669")
+    users = DB.getPersonsByCompanyID("c972a771-0718-4c75-bddf-dfa605b7b93d")
     
     return {"data": users}
     
@@ -308,12 +318,13 @@ async def get_teams():
 
 @app.post("/team")
 async def create_team(team: TeamCreate):
-    if not team.name or not team.departmentID:
-        raise HTTPException(status_code=400, detail="Nome e departmentID são obrigatórios")
+    if not team.name or not team.departmentID or not team.managerID:
+        raise HTTPException(status_code=400, detail="Campos obrigatórios ausentes")
 
-    new_team = Team(team.name, team.departmentID)
+    new_team = Team(team.name, team.managerID, team.departmentID)
     DB.addItem(new_team)
-    return {"message": "Time criado com sucesso!"}
+    return {"message": "Time criado com sucesso!", "id": new_team.id}
+
 
 @app.get("/team_users/{id}")
 async def get_team_users(id : str):
@@ -410,4 +421,31 @@ async def delete_kr(id: str):
     DB.deleteItemByObject(kr)
     return {"message": "KR deletado com sucesso"}
 
+
+
+@app.get("/data/{group_type}/{group_id}/{data_type}")
+async def get_data_by_entity(group_type: str, group_id: str, data_type: str):
+    """
+    Retorna RPE / Objective / KPI / KR filtrado por Company, Department ou Team.
+    group_type: "company" | "department" | "team"
+    data_type: "rpe" | "objective" | "kpi" | "kr"
+    """
+
+    if not (group_type and group_id and data_type):
+        raise HTTPException(status_code=400, detail="Parâmetros obrigatórios ausentes")
+
+    group_type_normalized = group_type.capitalize()
+
+    data_type_normalized = data_type.upper()
+
+    try:
+        result = DB.getDataByEntity(
+            group_type_normalized,
+            group_id,
+            data_type_normalized
+        )
+        return {"data": result}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 

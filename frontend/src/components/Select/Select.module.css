@@ -1,6 +1,7 @@
 .selectWrapper {
   display: inline-block;
   position: relative;
+  width: 100%;
 }
 
 .select {
@@ -38,4 +39,12 @@
   background-color: #2c2c2c;
   color: #e3e3e3;
   border: none;
+}
+
+.increasedWidth {
+  width: 15rem;
+}
+
+.modal {
+  width: 100% !important;
 }

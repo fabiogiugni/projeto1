@@ -1,25 +1,69 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HomeTable, Select } from "../../components";
 import styles from "./Home.module.css";
 
-import {
-  companies,
-  departments,
-  teams,
-  rpes,
-  objectives,
-  krs,
-  kpis,
-} from "../../assets/testValues";
-
 export default function Home() {
-  // Para o funcionamento da página, temos 2 inputs
-  // Um é o input de grupo que filtra por rpes, objetivo, etc. e o outro é o de dado, que filtra por empresa, departamento, etc
-  // Enquanto algum dos filtros estiver vazio, o backend não é chamado para puxar os dados
-
   const [selectedGroupType, setSelectedGroupType] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedDataType, setSelectedDataType] = useState("");
+
+  const [groups, setGroups] = useState([]);
+  const [tableData, setTableData] = useState([]);
+
+  useEffect(() => {
+    setSelectedGroup("");
+    setSelectedDataType("");
+    setTableData([]);
+  }, [selectedGroupType]);
+
+  useEffect(() => {
+    async function fetchGroups() {
+      if (!selectedGroupType) return;
+
+      const endpoints = {
+        company: "/getAllCompanies",
+        department: "/getAllDepartments",
+        team: "/getAllTeams",
+      };
+
+      try {
+        const res = await fetch(
+          `http://localhost:8000${endpoints[selectedGroupType]}`
+        );
+        const json = await res.json();
+
+        const normalized = Array.isArray(json.data) ? json.data : [json.data];
+
+        setGroups(normalized);
+      } catch (err) {
+        console.error("Erro ao buscar grupos:", err);
+      }
+    }
+
+    fetchGroups();
+  }, [selectedGroupType]);
+
+  useEffect(() => {
+    async function fetchTable() {
+      if (!selectedGroupType || !selectedGroup || !selectedDataType) {
+        setTableData([]);
+        return;
+      }
+
+      try {
+        const url = `http://localhost:8000/data/${selectedGroupType}/${selectedGroup}/${selectedDataType}`;
+        const response = await fetch(url);
+        const json = await response.json();
+        const normalized = Array.isArray(json.data) ? json.data : [json.data];
+
+        setTableData(normalized);
+      } catch (err) {
+        console.error("Erro ao carregar dados da tabela:", err);
+      }
+    }
+
+    fetchTable();
+  }, [selectedGroupType, selectedGroup, selectedDataType]);
 
   const groupTypeOptions = [
     { label: "Empresa", value: "company" },
@@ -34,26 +78,15 @@ export default function Home() {
     { label: "KPI", value: "kpi" },
   ];
 
-  let groupOptions = [];
-  if (selectedGroupType === "company")
-    groupOptions = companies.map((company) => ({
-      label: company.name,
-      value: company.id,
-    }));
-  if (selectedGroupType === "department")
-    groupOptions = departments.map((department) => ({
-      label: department.name,
-      value: department.id,
-    }));
-  if (selectedGroupType === "team")
-    groupOptions = teams.map((team) => ({ label: team.name, value: team.id }));
+  const groupOptions = groups.map((item) => ({
+    label: item._name,
+    value: item._id,
+  }));
 
-  /* espaço destinado a chamar a função do backend */
-  let dataToShowOnTable = [];
-  if (selectedDataType === "RPE") dataToShowOnTable = rpes;
-  else if (selectedDataType === "objective") dataToShowOnTable = objectives;
-  else if (selectedDataType === "kr") dataToShowOnTable = krs;
-  else dataToShowOnTable = kpis;
+  function getLabelByValue(value, options) {
+    const item = options.find((opt) => opt.value === value);
+    return item ? item.label : "";
+  }
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -65,26 +98,32 @@ export default function Home() {
           options={groupTypeOptions}
           onChange={setSelectedGroupType}
         />
+
         <Select
           title="Grupo"
           options={groupOptions}
           onChange={setSelectedGroup}
+          width={true}
+          disabled={!selectedGroupType}
         />
+
         <Select
           title="Dado"
           options={dataTypeOptions}
           onChange={setSelectedDataType}
+          disabled={!selectedGroup}
         />
       </div>
-      {selectedDataType && selectedGroupType && selectedGroup ? (
+
+      {selectedGroupType && selectedGroup && selectedDataType ? (
         <HomeTable
-          data={dataToShowOnTable}
+          data={tableData}
           type={selectedDataType}
-          group={selectedGroup}
-          groupType={selectedGroupType}
+          group={getLabelByValue(selectedGroup, groupOptions)}
+          groupType={getLabelByValue(selectedGroupType, groupTypeOptions)}
         />
       ) : (
-        <div>Preencha todos os dados visualizar a tabela</div>
+        <div>Preencha todos os dados para visualizar a tabela</div>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ export default function TableRow({ data, group, type }) {
   return (
     <tr>
       <td className={styles.tableItem}>
-        <div>{data.name}</div>
+        <div>{data.name || data._description}</div>
         <div className={styles.description}>{data.description}</div>
       </td>
       <td className={styles.tableItem}>{group}</td>

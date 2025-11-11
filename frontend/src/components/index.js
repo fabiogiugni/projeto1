@@ -7,3 +7,4 @@ export { default as HomeTable } from "./HomeTable/HomeTable";
 export { default as CommonPageTable } from "./CommonPageTable/CommonPageTable";
 export { default as ManageRPEsTable } from "./ManageRPEsTable/ManageRPEsTable";
 export { default as DeleteModal } from "./DeleteModal/DeleteModal";
+export { default as CreateModal } from "./CreateModal/CreateModal";
