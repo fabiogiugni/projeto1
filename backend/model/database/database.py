@@ -945,22 +945,32 @@ class Database:
         if data_type == "KPI":
             objectives = self.getDataByEntity(group_type, group_id, "Objective")
             kpis = []
-            for obj in objectives:
-                for kpiID in self.getKPIsByObjective(obj.id):
-                    kpis.append(self.getKPIByID(kpiID))
-            return kpis
 
+            for obj in objectives:
+                if not obj: 
+                    continue
+                for kpiID in self.getKPIsByObjective(obj.id):
+                    kpi = self.getKPIByID(kpiID)
+                    if kpi:  
+                        kpis.append(kpi)
+            return kpis
         # --- 4) KR ---
         if data_type == "KR":
             objectives = self.getDataByEntity(group_type, group_id, "Objective")
             krs = []
+
             for obj in objectives:
+                if not obj:  
+                    continue
                 for krID in self.getKRsByObjective(obj.id):
-                    krs.append(self.getKRByID(krID))
+                    kr = self.getKRByID(krID)
+                    if kr:   
+                        krs.append(kr)
             return krs
 
         return []
     
+
     def getTeams(self) -> list[Team]:
         cursor = self.__db.cursor()
         cursor.execute("SELECT * FROM team ")

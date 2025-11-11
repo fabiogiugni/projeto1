@@ -55,8 +55,8 @@ export default function Home() {
         const response = await fetch(url);
         const json = await response.json();
         const normalized = Array.isArray(json.data) ? json.data : [json.data];
-        console.log(normalized);
-        //setTableData(normalized);
+
+        setTableData(normalized);
       } catch (err) {
         console.error("Erro ao carregar dados da tabela:", err);
       }
@@ -82,6 +82,11 @@ export default function Home() {
     label: item._name,
     value: item._id,
   }));
+
+  function getLabelByValue(value, options) {
+    const item = options.find((opt) => opt.value === value);
+    return item ? item.label : "";
+  }
 
   return (
     <div className={styles.container} style={{ width: "100vw" }}>
@@ -114,8 +119,8 @@ export default function Home() {
         <HomeTable
           data={tableData}
           type={selectedDataType}
-          group={selectedGroup}
-          groupType={selectedGroupType}
+          group={getLabelByValue(selectedGroup, groupOptions)}
+          groupType={getLabelByValue(selectedGroupType, groupTypeOptions)}
         />
       ) : (
         <div>Preencha todos os dados para visualizar a tabela</div>
