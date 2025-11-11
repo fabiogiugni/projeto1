@@ -79,12 +79,28 @@ export default function CreateModal({
                     onInputChange={(value) => handleChange(field.nome, value)}
                   />
                 )}
-
+                {field.tipo === "email" && (
+                  <Input
+                    placeHolder={field.label}
+                    type="email"
+                    onInputChange={(value) => handleChange(field.nome, value)}
+                  />
+                )}
+                {field.tipo === "password" && (
+                  <Input
+                    placeHolder={field.label}
+                    type="password"
+                    onInputChange={(value) => handleChange(field.nome, value)}
+                  />
+                )}
                 {field.tipo === "select" && (
                   <Select
                     title={field.label}
                     options={field.options || []}
-                    onChange={(value) => handleChange(field.nome, value)}
+                    onChange={(value) => {
+                      handleChange(field.nome, value);
+                      field.onChangeCustom?.(value); // 👈 dispara lógica extra se existir
+                    }}
                     modal={true}
                   />
                 )}
@@ -92,7 +108,6 @@ export default function CreateModal({
             ))}
           </div>
 
-          {/* ✅ Mensagem aparece apenas quando o usuário tenta enviar */}
           {touchedSubmit && !isFormValid() && (
             <div className={styles.errorGlobal}>Preencha todos os campos</div>
           )}
